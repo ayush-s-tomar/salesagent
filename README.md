@@ -2,10 +2,7 @@
 
 > Paste a LinkedIn URL. Get a researched lead, ML score, and personalized cold email in 45 seconds.
 
-🔗 **Live Demo** → [salesagent-theta.vercel.app](https://salesagent-theta.vercel.app)
-⚙️ **API Docs** → [salesagent-ufu7.onrender.com/docs](https://salesagent-ufu7.onrender.com/docs)
-📁 **GitHub** → [github.com/ayush-s-tomar/salesagent](https://github.com/ayush-s-tomar/salesagent)
-
+🔗 **Live Demo** → [salesagent-theta.vercel.app](https://salesagent-theta.vercel.app) &nbsp;|&nbsp; ⚙️ **API Docs** → [salesagent-ufu7.onrender.com/docs](https://salesagent-ufu7.onrender.com/docs) &nbsp;|&nbsp; 📁 **GitHub** → [github.com/ayush-s-tomar/salesagent](https://github.com/ayush-s-tomar/salesagent)
 ---
 
 ![SalesAgent Demo](demo.png)
