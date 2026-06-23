@@ -36,17 +36,18 @@ def train_and_save():
         np.random.randint(0, 2, n),          # has_jobs
     ])
 
-    # Synthetic label: higher score = better lead
+    # Rebalanced weights: news + jobs matter most (what we can always get)
+    # company/title/summary are bonuses, not requirements
     y = (
-        X[:, 0] * 0.3 +
-        X[:, 1] * 0.2 +
-        (X[:, 2] / 15) * 0.2 +
-        X[:, 3] * 0.1 +
-        X[:, 4] * 0.1 +
-        X[:, 5] * 0.1 +
+        X[:, 0] * 0.10 +   # has_company (reduced — not always available)
+        X[:, 1] * 0.10 +   # has_title
+        (X[:, 2] / 15) * 0.15 +  # skills_count
+        X[:, 3] * 0.10 +   # has_summary
+        X[:, 4] * 0.30 +   # has_news (most important — signals active company)
+        X[:, 5] * 0.25 +   # has_jobs (hiring = growing = good lead)
         np.random.normal(0, 0.05, n)
     )
-    y_binary = (y > 0.5).astype(int)
+    y_binary = (y > 0.35).astype(int)  # Lower threshold so more leads qualify
 
     scaler = MinMaxScaler()
     X_scaled = scaler.fit_transform(X)
@@ -84,14 +85,14 @@ def score_lead(features: dict) -> float:
         X_scaled = scaler.transform(X)
         proba = model.predict_proba(X_scaled)[0][1]
 
-        # Add bonus for completeness
+        # Bonus points for intelligence we gathered
         bonus = sum([
-            features.get("has_news", 0) * 5,
-            features.get("has_jobs", 0) * 5,
-            min(features.get("skills_count", 0), 10),
+            features.get("has_news", 0) * 8,   # Found company news = active company
+            features.get("has_jobs", 0) * 7,   # Hiring = growing = hot lead
+            min(features.get("skills_count", 0), 10) * 1,
         ])
 
-        score = min(100, proba * 80 + bonus)
+        score = min(100, proba * 75 + bonus)
         return round(score, 1)
     except Exception as e:
         print(f"Scoring error: {e}")
