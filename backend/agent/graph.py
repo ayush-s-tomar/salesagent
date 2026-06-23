@@ -11,6 +11,14 @@ from memory.store import save_lead, get_lead, save_deal, log_interaction
 from ml.scorer import score_lead
 
 
+# ─── Helper ───────────────────────────────────────────────────────────────────
+
+def _parse_name_from_url(url: str) -> str:
+    """Convert LinkedIn URL slug to a readable name."""
+    slug = url.rstrip("/").split("/")[-1]
+    return slug.replace("-", " ").title()
+
+
 # ─── Nodes ────────────────────────────────────────────────────────────────────
 
 def node_research(state: AgentState) -> AgentState:
@@ -20,13 +28,13 @@ def node_research(state: AgentState) -> AgentState:
 
     url = state.get("linkedin_url", "")
 
-    system = """You are a B2B sales intelligence agent. 
-    Given a LinkedIn URL, call the available tools to:
-    1. Scrape the LinkedIn profile
-    2. Search for latest company news
-    3. Analyze job postings for pain points
-    4. Find the company's tech stack
-    Gather as much relevant sales intelligence as possible."""
+    system = """You are a B2B sales intelligence agent.
+Given a LinkedIn URL, call the available tools to:
+1. Call scrape_linkedin_profile with the URL
+2. Call search_company_news with the company name you find
+3. Call analyze_job_postings with the company name
+4. Call find_tech_stack with the company name
+Gather as much relevant sales intelligence as possible."""
 
     text, tool_log = run_with_tools(
         prompt=f"Research this LinkedIn profile and the person's company: {url}",
@@ -40,7 +48,7 @@ def node_research(state: AgentState) -> AgentState:
             try:
                 profile = json.loads(entry["result"])
             except Exception:
-                profile = {"linkedin_url": url}
+                profile = {}
         elif entry["tool"] == "search_company_news":
             state["company_news"] = entry["result"]
         elif entry["tool"] == "analyze_job_postings":
@@ -48,11 +56,27 @@ def node_research(state: AgentState) -> AgentState:
         elif entry["tool"] == "find_tech_stack":
             state["tech_stack"] = entry["result"]
 
+    # Fallback if agent didn't call scrape tool
     if not profile:
         profile = scrape_linkedin_profile(url)
 
+    # Fix name: if it looks like a raw slug (no spaces), clean it up
+    name = profile.get("name", "")
+    if not name or " " not in name:
+        profile["name"] = _parse_name_from_url(url)
+
+    # If company still unknown, try to find it from news context
+    if not profile.get("company") or profile.get("company") == "Unknown Company":
+        profile["company"] = ""
+
     state["profile"] = profile
-    trace.append({"step": "research", "status": "done", "msg": f"✅ Found: {profile.get('name', 'Lead')} at {profile.get('company', 'Unknown')}"})
+    display_name = profile.get("name", "Lead")
+    display_company = profile.get("company") or "their company"
+    trace.append({
+        "step": "research",
+        "status": "done",
+        "msg": f"✅ Found: {display_name} at {display_company}"
+    })
     state["trace"] = trace
     return state
 
@@ -87,7 +111,8 @@ def node_email(state: AgentState) -> AgentState:
 
     profile = state.get("profile", {})
     name = profile.get("name", "there")
-    company = profile.get("company", "your company")
+    first_name = name.split()[0] if name else "there"
+    company = profile.get("company", "") or "your company"
     title = profile.get("title", "")
     news = state.get("company_news", "")[:500]
     jobs = state.get("job_postings", "")[:400]
@@ -102,7 +127,8 @@ Use this intelligence:
 
 Rules:
 - Subject line: reference something specific about them
-- Opening: mention a specific company event or initiative (not generic)
+- Opening: address them as {first_name} (first name only)
+- Mention a specific recent company event or initiative
 - Body: connect their pain point (from job postings) to a solution
 - CTA: simple, one ask, not pushy
 - Length: under 150 words

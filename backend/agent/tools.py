@@ -10,7 +10,7 @@ tavily = TavilyClient(api_key=os.getenv("TAVILY_API_KEY", ""))
 def scrape_linkedin_profile(linkedin_url: str) -> dict:
     """
     Scrape public LinkedIn profile data.
-    Uses Proxycurl API if key is set, otherwise returns mock data for dev.
+    Uses Proxycurl API if key is set, otherwise extracts name from URL slug.
     """
     api_key = os.getenv("PROXYCURL_API_KEY", "")
 
@@ -37,11 +37,15 @@ def scrape_linkedin_profile(linkedin_url: str) -> dict:
             print(f"Proxycurl error: {e}")
 
     # Fallback: extract name from URL slug
-    slug = linkedin_url.rstrip("/").split("/")[-1].replace("-", " ").title()
+    # "satya-nadella" → "Satya Nadella"
+    # "satyanadella"  → "Satyanadella" (no hyphens, best effort)
+    slug = linkedin_url.rstrip("/").split("/")[-1]
+    name = slug.replace("-", " ").title()
+
     return {
-        "name": slug,
+        "name": name,
         "title": "Professional",
-        "company": "Unknown Company",
+        "company": "",
         "location": "",
         "summary": "",
         "skills": [],
@@ -53,7 +57,7 @@ def search_company_news(company_name: str) -> str:
     """Search for latest company news, funding, product launches."""
     try:
         results = tavily.search(
-            query=f"{company_name} latest news funding product launch 2024 2025",
+            query=f"{company_name} latest news funding product launch 2025 2026",
             max_results=3,
         )
         snippets = [r.get("content", "") for r in results.get("results", [])]
@@ -66,7 +70,7 @@ def analyze_job_postings(company_name: str) -> str:
     """Find pain points by analyzing what roles the company is hiring for."""
     try:
         results = tavily.search(
-            query=f"{company_name} hiring jobs 2024 2025 site:linkedin.com OR site:indeed.com",
+            query=f"{company_name} hiring jobs 2025 2026 site:linkedin.com OR site:indeed.com",
             max_results=3,
         )
         snippets = [r.get("content", "") for r in results.get("results", [])]
