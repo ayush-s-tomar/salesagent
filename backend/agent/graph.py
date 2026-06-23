@@ -66,7 +66,17 @@ Gather as much relevant sales intelligence as possible."""
         profile["name"] = _parse_name_from_url(url)
 
     # If company still unknown, try to find it from news context
-    if not profile.get("company") or profile.get("company") == "Unknown Company":
+    # Try to infer company from web search context
+if not profile.get("company") or profile.get("company") == "Unknown Company":
+    news = state.get("company_news", "")
+    # Ask LLM to extract company name from news context
+    if news:
+        from agent.llm import chat
+        company_guess = chat(
+            messages=[{"role": "user", "content": f"Based on this news context, what company is this person from? Reply with just the company name, nothing else.\n\nContext: {news[:500]}\n\nLinkedIn URL: {state.get('linkedin_url', '')}"}],
+        ).strip()
+        profile["company"] = company_guess if company_guess else ""
+    else:
         profile["company"] = ""
 
     state["profile"] = profile
