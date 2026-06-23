@@ -1,0 +1,28 @@
+services:
+  - type: web
+    name: salesagent-backend
+    runtime: python
+    rootDir: backend
+    buildCommand: pip install -r requirements.txt && python -c "from ml.scorer import train_and_save; train_and_save()"
+    startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: GROQ_API_KEY
+        sync: false
+      - key: TAVILY_API_KEY
+        sync: false
+      - key: PROXYCURL_API_KEY
+        sync: false
+      - key: GROQ_MODEL
+        value: llama-3.3-70b-versatile
+      - key: PYTHON_VERSION
+        value: 3.11.0
+
+  - type: web
+    name: salesagent-frontend
+    runtime: static
+    rootDir: frontend
+    buildCommand: npm install && npm run build
+    staticPublishPath: build
+    envVars:
+      - key: REACT_APP_API_URL
+        sync: false
