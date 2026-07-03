@@ -29,16 +29,48 @@ Return ONLY valid JSON in this exact shape, nothing else:
     "under_word_limit": <true/false>,
     "no_forbidden_placeholders": <true/false>
   },
-  "overall_pass": <true/false, true only if all criteria_results are true AND avg score >= 3>,
   "reasoning": "<2-3 sentence explanation of the score, specifically noting any failures>"
-}"""
+}
+
+Do NOT compute overall_pass yourself - just report the criteria_results honestly."""
 
 
 def _word_count(text: str) -> int:
     return len(text.split())
 
 
+def _check_expected_pass(judge_result: dict, test_case: dict) -> bool:
+    """Compare actual criteria_results against what THIS test case expects,
+    instead of assuming every criterion must be true. Some test cases
+    (e.g. deliberately low-signal profiles) expect certain fields to be False."""
+    criteria = test_case["criteria"]
+    actual = judge_result.get("criteria_results", {})
+
+    expected_map = {
+        "mentions_company": criteria.get("must_mention_company"),
+        "has_specific_hook": criteria.get("must_have_specific_hook"),
+    }
+
+    for key, expected in expected_map.items():
+        if expected is not None and actual.get(key) != expected:
+            return False
+
+    # These are always required regardless of test case
+    if not actual.get("under_word_limit", False):
+        return False
+    if not actual.get("no_forbidden_placeholders", False):
+        return False
+    if not actual.get("min_score_met", False):
+        return False
+
+    return True
+
+
 def judge_output(agent_result: dict, test_case: dict) -> dict:
+    """
+    agent_result: dict with keys profile, score, email, deal_id, followup (from run_agent's final event)
+    test_case: one entry from golden_set.json
+    """
     criteria = test_case["criteria"]
     email = agent_result.get("email") or ""
     profile = agent_result.get("profile") or {}
@@ -96,7 +128,6 @@ mentions_company and has_specific_hook."""
             "correctness_score": 0,
             "structure_score": 0,
             "criteria_results": {},
-            "overall_pass": False,
             "reasoning": f"JUDGE_PARSE_ERROR: raw output was: {raw[:300]}",
         }
 
@@ -106,5 +137,9 @@ mentions_company and has_specific_hook."""
     result["criteria_results"]["min_score_met"] = min_score_met
     result["word_count"] = word_count
     result["forbidden_found"] = found_forbidden
+
+    # Compute overall_pass ourselves based on THIS test case's expectations,
+    # instead of trusting the judge model to assume all criteria must be true.
+    result["overall_pass"] = _check_expected_pass(result, test_case)
 
     return result

@@ -1,3 +1,4 @@
+﻿import os
 import json
 import asyncio
 from typing import AsyncGenerator
@@ -11,20 +12,16 @@ from memory.store import save_lead, get_lead, save_deal, log_interaction
 from ml.scorer import score_lead
 
 
-# ─── Helper ───────────────────────────────────────────────────────────────────
-
 def _parse_name_from_url(url: str) -> str:
     """Convert LinkedIn URL slug to a readable name."""
     slug = url.rstrip("/").split("/")[-1]
     return slug.replace("-", " ").title()
 
 
-# ─── Nodes ────────────────────────────────────────────────────────────────────
-
 def node_research(state: AgentState) -> AgentState:
     """Scrape LinkedIn + gather company intelligence using tool-calling."""
     trace = state.get("trace", [])
-    trace.append({"step": "research", "status": "running", "msg": "🔍 Researching lead from LinkedIn..."})
+    trace.append({"step": "research", "status": "running", "msg": "Researching lead from LinkedIn..."})
 
     url = state.get("linkedin_url", "")
 
@@ -41,7 +38,6 @@ Gather as much relevant sales intelligence as possible."""
         system=system,
     )
 
-    # Parse profile from tool log
     profile = {}
     for entry in tool_log:
         if entry["tool"] == "scrape_linkedin_profile":
@@ -56,16 +52,13 @@ Gather as much relevant sales intelligence as possible."""
         elif entry["tool"] == "find_tech_stack":
             state["tech_stack"] = entry["result"]
 
-    # Fallback if agent didn't call scrape tool
     if not profile:
         profile = scrape_linkedin_profile(url)
 
-    # Fix name: if it looks like a raw slug (no spaces), clean it up
     name = profile.get("name", "")
     if not name or " " not in name:
         profile["name"] = _parse_name_from_url(url)
 
-    # If company still unknown, try to find it from news context
     if not profile.get("company") or profile.get("company") == "Unknown Company":
         profile["company"] = ""
 
@@ -75,7 +68,7 @@ Gather as much relevant sales intelligence as possible."""
     trace.append({
         "step": "research",
         "status": "done",
-        "msg": f"✅ Found: {display_name} at {display_company}"
+        "msg": f"Found: {display_name} at {display_company}"
     })
     state["trace"] = trace
     return state
@@ -84,7 +77,7 @@ Gather as much relevant sales intelligence as possible."""
 def node_score(state: AgentState) -> AgentState:
     """Score the lead using ML model."""
     trace = state.get("trace", [])
-    trace.append({"step": "score", "status": "running", "msg": "📊 Scoring lead with ML model..."})
+    trace.append({"step": "score", "status": "running", "msg": "Scoring lead with ML model..."})
 
     profile = state.get("profile", {})
     features = {
@@ -99,26 +92,49 @@ def node_score(state: AgentState) -> AgentState:
     ml_score = score_lead(features)
     state["lead_score"] = ml_score
 
-    trace.append({"step": "score", "status": "done", "msg": f"✅ Lead score: {ml_score:.0f}/100"})
+    trace.append({"step": "score", "status": "done", "msg": f"Lead score: {ml_score:.0f}/100"})
     state["trace"] = trace
     return state
 
 
+FORBIDDEN_PLACEHOLDERS = ["[Your Name]", "[Company]", "[Name]", "[Your Company]", "[Position]"]
+MAX_EMAIL_WORDS = 150
+
+
+def _validate_email(email: str) -> list:
+    """Return a list of violation strings, empty if the email is clean."""
+    violations = []
+    word_count = len(email.split())
+    if word_count > MAX_EMAIL_WORDS:
+        violations.append(f"Email is {word_count} words, must be under {MAX_EMAIL_WORDS}.")
+    for ph in FORBIDDEN_PLACEHOLDERS:
+        if ph.lower() in email.lower():
+            violations.append(f"Contains forbidden placeholder: {ph}")
+    return violations
+
+
 def node_email(state: AgentState) -> AgentState:
-    """Generate hyper-personalized cold email."""
+    """Generate hyper-personalized cold email, with a self-correction pass
+    if the first draft breaks length or placeholder rules."""
     trace = state.get("trace", [])
-    trace.append({"step": "email", "status": "running", "msg": "✍️ Drafting personalized cold email..."})
+    trace.append({"step": "email", "status": "running", "msg": "Drafting personalized cold email..."})
 
     profile = state.get("profile", {})
     name = profile.get("name", "there")
     first_name = name.split()[0] if name else "there"
-    company = profile.get("company", "") or "your company"
+    company = profile.get("company", "") or ""
     title = profile.get("title", "")
     news = state.get("company_news", "")[:500]
     jobs = state.get("job_postings", "")[:400]
     tech = state.get("tech_stack", "")[:300]
+    sender_name = os.getenv("SENDER_NAME", "the sender")
 
-    prompt = f"""Write a hyper-personalized B2B cold email to {name}, {title} at {company}.
+    if company:
+        company_line = f"at {company}"
+    else:
+        company_line = "(no company on file - do not invent one, focus on their role/industry instead)"
+
+    base_prompt = f"""Write a hyper-personalized B2B cold email to {name}, {title} {company_line}.
 
 Use this intelligence:
 - Company news: {news}
@@ -128,22 +144,43 @@ Use this intelligence:
 Rules:
 - Subject line: reference something specific about them
 - Opening: address them as {first_name} (first name only)
-- Mention a specific recent company event or initiative
+- Mention a specific recent company event or initiative, only if real data was provided above
 - Body: connect their pain point (from job postings) to a solution
 - CTA: simple, one ask, not pushy
-- Length: under 150 words
+- Length: STRICTLY under {MAX_EMAIL_WORDS} words, this is a hard limit
 - Tone: professional but human, not salesy
-- Do NOT use placeholders like [Your Name] — use "I" naturally
+- Sign off with exactly this name: {sender_name} - never use a bracketed placeholder for the sender name, company, or anything else
 
 Return ONLY the email with Subject: on first line."""
 
     email = chat(
-        messages=[{"role": "user", "content": prompt}],
+        messages=[{"role": "user", "content": base_prompt}],
         system="You are an expert B2B sales copywriter. Write emails that get replies.",
     )
 
+    violations = _validate_email(email)
+
+    if violations:
+        trace.append({"step": "email", "status": "running", "msg": f"Draft violated rules, retrying: {violations}"})
+        violation_lines = chr(10).join("- " + v for v in violations)
+        retry_prompt = f"""Your previous draft violated these rules:
+{violation_lines}
+
+Previous draft:
+---
+{email}
+---
+
+Rewrite it to fix every violation above. Keep the same personalization and quality,
+just fix the specific issues listed. Return ONLY the corrected email with Subject: on first line."""
+
+        email = chat(
+            messages=[{"role": "user", "content": retry_prompt}],
+            system="You are an expert B2B sales copywriter. Write emails that get replies.",
+        )
+
     state["email_draft"] = email
-    trace.append({"step": "email", "status": "done", "msg": "✅ Personalized email drafted"})
+    trace.append({"step": "email", "status": "done", "msg": "Personalized email drafted"})
     state["trace"] = trace
     return state
 
@@ -151,7 +188,7 @@ Return ONLY the email with Subject: on first line."""
 def node_save(state: AgentState) -> AgentState:
     """Save lead and deal to database."""
     trace = state.get("trace", [])
-    trace.append({"step": "save", "status": "running", "msg": "💾 Saving to CRM pipeline..."})
+    trace.append({"step": "save", "status": "running", "msg": "Saving to CRM pipeline..."})
 
     profile = state.get("profile", {})
 
@@ -168,7 +205,7 @@ def node_save(state: AgentState) -> AgentState:
 
     deal_id = save_deal({
         "lead_id": lead_id,
-        "title": f"{profile.get('name', 'Lead')} — {profile.get('company', '')}",
+        "title": f"{profile.get('name', 'Lead')} - {profile.get('company', '')}",
         "stage": "Lead",
         "score": state.get("lead_score", 0),
     })
@@ -179,12 +216,10 @@ def node_save(state: AgentState) -> AgentState:
 
     log_interaction(lead_id, "agent_research", state.get("email_draft", ""))
 
-    trace.append({"step": "save", "status": "done", "msg": f"✅ Added to pipeline. Follow-up: {followup}"})
+    trace.append({"step": "save", "status": "done", "msg": f"Added to pipeline. Follow-up: {followup}"})
     state["trace"] = trace
     return state
 
-
-# ─── Graph ────────────────────────────────────────────────────────────────────
 
 def build_graph():
     g = StateGraph(AgentState)
@@ -237,7 +272,7 @@ async def run_agent(
     yield {
         "step": "complete",
         "status": "done",
-        "msg": "🎉 Lead processed successfully",
+        "msg": "Lead processed successfully",
         "data": {
             "profile": result.get("profile"),
             "score": result.get("lead_score"),
