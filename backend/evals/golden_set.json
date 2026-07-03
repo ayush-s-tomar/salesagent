@@ -1,0 +1,38 @@
+[
+  {
+    "id": "eval_001",
+    "linkedin_url": "https://linkedin.com/in/satyanadella",
+    "criteria": {
+      "min_score": 60,
+      "must_mention_company": true,
+      "must_have_specific_hook": true,
+      "max_word_count": 160,
+      "must_not_contain": ["[Your Name]", "[Company]", "Dear Sir/Madam", "To Whom It May Concern"]
+    },
+    "notes": "High-profile exec, company should resolve to Microsoft, news/job signals should exist"
+  },
+  {
+    "id": "eval_002",
+    "linkedin_url": "https://linkedin.com/in/random-startup-founder-xyz",
+    "criteria": {
+      "min_score": 0,
+      "must_mention_company": false,
+      "must_have_specific_hook": false,
+      "max_word_count": 160,
+      "must_not_contain": ["[Your Name]", "[Company]"]
+    },
+    "notes": "Deliberately low-signal / likely unscrapeable profile - tests graceful degradation, not a crash"
+  },
+  {
+    "id": "eval_003",
+    "linkedin_url": "https://linkedin.com/in/sundarpichai",
+    "criteria": {
+      "min_score": 60,
+      "must_mention_company": true,
+      "must_have_specific_hook": true,
+      "max_word_count": 160,
+      "must_not_contain": ["[Your Name]", "[Company]"]
+    },
+    "notes": "High-profile exec, Google, strong news signal expected"
+  }
+]
