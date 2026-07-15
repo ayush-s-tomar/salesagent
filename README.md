@@ -136,6 +136,8 @@ salesagent/
 │   │   └── store.py         # SQLite (leads, deals, interactions)
 │   ├── ml/
 │   │   └── scorer.py        # Random Forest lead scorer
+│   ├── tests/
+│   │   └── test_smoke.py    # Import/build/output-range smoke tests (CI)
 │   └── api/
 │       ├── leads.py         # CRUD endpoints
 │       ├── deals.py         # Pipeline stage management
@@ -151,6 +153,10 @@ salesagent/
 ├── docs/
 │   ├── demo-screenshot.png  # Polished before → after product shot
 │   └── demo.mp4             # Screen-recorded walkthrough (optional)
+├── .github/
+│   └── workflows/
+│       └── ci.yml           # Runs smoke tests on every push/PR
+├── LICENSE
 ├── render.yaml
 └── README.md
 ```
@@ -220,6 +226,16 @@ curl -X POST https://salesagent-ufu7.onrender.com/api/agent/run \
 - **Multi-agent mode** — separate Research, Scoring, and Writing agents collaborating
 - **Fine-tuned email model** trained on high-reply-rate cold email datasets
 - **Eval harness** with LLM-as-judge to auto-score email quality
+
+---
+
+## Known Limitations
+
+- **LinkedIn profile scraping is best-effort.** Without a paid Proxycurl key, the agent falls back to inferring names/companies from the URL slug, which can occasionally mismatch (e.g. redirects or vanity URLs that don't match the expected profile). The agent detects and discards mismatched extractions rather than silently using wrong data — see `agent/graph.py::_parse_name_from_url`.
+- **Location extraction can produce redundant country tags** (e.g. "India, IN") on certain search result formats — deduped as a post-processing step, but the underlying search API's inconsistency remains.
+- **Free-tier LLM rate limits** (Groq) mean heavy concurrent usage may briefly slow or queue email generation.
+- **SQLite for persistence** — fine for a portfolio/demo scale, but a production version would move to Postgres for concurrent writes and durability.
+- **No authentication layer** — this is a single-user demo; a real CRM deployment would need proper multi-tenant auth before handling real prospect data.
 
 ---
 
