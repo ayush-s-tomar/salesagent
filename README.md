@@ -4,6 +4,7 @@
 ![FastAPI](https://img.shields.io/badge/backend-FastAPI-009688)
 ![React](https://img.shields.io/badge/frontend-React-61DAFB)
 ![Status](https://img.shields.io/badge/status-active-brightgreen)
+![CI](https://github.com/ayush-s-tomar/salesagent/actions/workflows/ci.yml/badge.svg)
 
 > An AI agent that researches a lead, scores them, and writes a personalized cold email — in 45 seconds, from just a LinkedIn URL.
 
