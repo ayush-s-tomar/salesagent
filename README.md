@@ -4,9 +4,24 @@
 
 [🔗 Live Demo](https://salesagent-theta.vercel.app) &nbsp;|&nbsp; [⚙️ API Docs](https://salesagent-ufu7.onrender.com/docs) &nbsp;|&nbsp; [📝 Technical Writeup](https://dev.to/ayushsinghtomar/i-got-tired-of-writing-cold-emails-so-i-built-an-ai-agent-to-do-it-for-me-2m4h) &nbsp;|&nbsp; [👤 LinkedIn](https://www.linkedin.com/in/ayush-s-tomar/)
 
-<!-- TODO: drop your dark-UI screenshot (the one with the 4 DONE steps + 84/100 score) right here.
-     Save it as docs/screenshot.png in the repo, then uncomment the line below. -->
-<!-- ![SalesAgent in action](docs/screenshot.png) -->
+<p align="center">
+  <img src="docs/demo-screenshot.png" alt="SalesAgent — one URL in, a scored, personalized lead out" width="800">
+</p>
+
+<p align="center">
+  <em>One URL in. A scored, personalized lead out — in ~45 seconds.</em>
+</p>
+
+### 🎥 Demo Video
+
+<!-- Option A: GitHub-hosted (best for README rendering) -->
+<!-- Upload docs/demo.mp4 via a GitHub Issue/PR comment to get a CDN link, then swap it in below: -->
+https://github.com/user-attachments/assets/f96c5bcb-776f-422f-99c3-821d74505d4a
+
+<!-- Option B: YouTube thumbnail link (use this instead if your video is on YouTube) -->
+<!--
+[![Watch the demo](docs/demo-thumbnail.png)](https://youtu.be/YOUR-VIDEO-ID)
+-->
 
 ---
 
@@ -123,6 +138,9 @@ salesagent/
 │       │   └── LeadsPage.js     # Lead table + detail view
 │       └── components/
 │           └── Sidebar.js
+├── docs/
+│   ├── demo-screenshot.png  # Polished before → after product shot
+│   └── demo.mp4             # Screen-recorded walkthrough (optional)
 ├── render.yaml
 └── README.md
 ```
