@@ -259,7 +259,7 @@ with tab_agent:
     with col_input:
         linkedin_url = st.text_input(
             "LinkedIn URL",
-            placeholder="https://www.linkedin.com/in/satya-nadella",
+            placeholder="Enter LinkedIn URL",
             label_visibility="collapsed",
         )
     with col_btn:

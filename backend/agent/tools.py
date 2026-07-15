@@ -166,10 +166,21 @@ Return ONLY valid JSON, no markdown fences, no preamble, in this exact shape:
         # loosely match the name we expect from the URL slug, discard the
         # extraction entirely rather than silently returning a stranger's
         # profile data under this person's URL.
+        #
+        # FIX (no-hyphen slugs): URL slugs without hyphens (e.g.
+        # "sundarpichai") produce a fallback name with no space
+        # ("sundarpichai"), while the LLM correctly extracts "sundar pichai"
+        # WITH a space. Neither string is a substring of the other once one
+        # has a space and the other doesn't, so the correct extraction was
+        # being discarded as a "mismatch". Comparing with spaces stripped
+        # from both sides fixes this while still catching genuine mismatches
+        # like the Ryan Roslansky case.
         extracted_name = (extracted.get("name") or "").strip().lower()
         fallback_lower = fallback_name.strip().lower()
+        extracted_compact = extracted_name.replace(" ", "")
+        fallback_compact = fallback_lower.replace(" ", "")
         if extracted_name and not (
-            extracted_name in fallback_lower or fallback_lower in extracted_name
+            extracted_compact in fallback_compact or fallback_compact in extracted_compact
         ):
             print(
                 f"Name mismatch: extracted '{extracted_name}' vs expected "
