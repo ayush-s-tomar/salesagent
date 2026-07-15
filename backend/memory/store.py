@@ -8,6 +8,11 @@ DB_PATH = os.getenv("DB_PATH", "salesagent.db")
 def get_conn():
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
+    # WAL mode lets reads and writes happen concurrently instead of the
+    # whole-database lock SQLite uses by default — matters once the
+    # Streamlit UI and FastAPI backend (or multiple Streamlit sessions)
+    # might touch the DB at overlapping times.
+    conn.execute("PRAGMA journal_mode=WAL;")
     return conn
 
 
@@ -84,6 +89,28 @@ def get_all_leads() -> list:
     rows = conn.execute("SELECT * FROM leads ORDER BY created_at DESC").fetchall()
     conn.close()
     return [dict(r) for r in rows]
+
+
+# FIX: api/leads.py already defined a LeadUpdate Pydantic model (name, title,
+# company, email, stage) but there was no store function — and no route — that
+# actually applied an update. This was dead/half-wired code. Added the
+# corresponding update function here; the matching PATCH route is added in
+# api/leads.py.
+def update_lead(lead_id: int, **fields) -> dict:
+    """Partially update a lead. Only non-None fields in `fields` are applied."""
+    allowed = {"name", "title", "company", "location", "email", "stage", "score", "email_draft"}
+    updates = {k: v for k, v in fields.items() if k in allowed and v is not None}
+    if not updates:
+        return get_lead(lead_id)
+
+    set_clause = ", ".join(f"{k}=:{k}" for k in updates)
+    updates["id"] = lead_id
+
+    conn = get_conn()
+    conn.execute(f"UPDATE leads SET {set_clause}, updated_at=CURRENT_TIMESTAMP WHERE id=:id", updates)
+    conn.commit()
+    conn.close()
+    return get_lead(lead_id)
 
 
 def save_deal(data: dict) -> int:

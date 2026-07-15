@@ -5,7 +5,6 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from typing import Optional
-import asyncio
 import json
 
 from agent.graph import run_agent
@@ -52,13 +51,21 @@ async def run_sales_agent(req: AgentRequest):
         raise HTTPException(400, "Provide linkedin_url or message")
 
     async def event_stream():
-        async for event in run_agent(
-            linkedin_url=req.linkedin_url,
-            message=req.message,
-            lead_id=req.lead_id,
-        ):
-            yield f"data: {json.dumps(event)}\n\n"
-        yield "data: [DONE]\n\n"
+        # FIX: previously, if run_agent() (or anything inside the graph)
+        # raised, the generator just died mid-stream with no event — the
+        # frontend would sit on its last "running" state forever with no
+        # error shown. Now a failure is surfaced as a proper SSE event.
+        try:
+            async for event in run_agent(
+                linkedin_url=req.linkedin_url,
+                message=req.message,
+                lead_id=req.lead_id,
+            ):
+                yield f"data: {json.dumps(event)}\n\n"
+        except Exception as e:
+            yield f"data: {json.dumps({'step': 'error', 'status': 'error', 'msg': str(e)})}\n\n"
+        finally:
+            yield "data: [DONE]\n\n"
 
     return StreamingResponse(event_stream(), media_type="text/event-stream")
 

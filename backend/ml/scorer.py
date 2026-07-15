@@ -6,11 +6,21 @@ In production: retrain on your actual CRM data (won leads vs lost).
 import os
 import pickle
 import numpy as np
+from pathlib import Path
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.preprocessing import MinMaxScaler
 
-MODEL_PATH = os.getenv("MODEL_PATH", "ml/model.pkl")
-SCALER_PATH = os.getenv("SCALER_PATH", "ml/scaler.pkl")
+# FIX: the old code used bare relative paths ("ml/model.pkl"), which resolve
+# against the process's current working directory — not this file's location.
+# Depending on where `streamlit run` / `uvicorn` is launched from, that either
+# silently retrains the model on every single run (slow, and non-deterministic
+# scores across restarts) or writes the pickle somewhere you'll never find it.
+# Resolving relative to __file__ makes this work identically no matter what
+# directory the app is started from.
+_THIS_DIR = Path(__file__).resolve().parent
+
+MODEL_PATH = Path(os.getenv("MODEL_PATH", _THIS_DIR / "model.pkl"))
+SCALER_PATH = Path(os.getenv("SCALER_PATH", _THIS_DIR / "scaler.pkl"))
 
 FEATURE_ORDER = [
     "has_company",
@@ -55,7 +65,7 @@ def train_and_save():
     model = RandomForestClassifier(n_estimators=100, random_state=42)
     model.fit(X_scaled, y_binary)
 
-    os.makedirs("ml", exist_ok=True)
+    MODEL_PATH.parent.mkdir(parents=True, exist_ok=True)
     with open(MODEL_PATH, "wb") as f:
         pickle.dump(model, f)
     with open(SCALER_PATH, "wb") as f:
@@ -65,7 +75,7 @@ def train_and_save():
 
 
 def load_model():
-    if not os.path.exists(MODEL_PATH):
+    if not MODEL_PATH.exists():
         return train_and_save()
     with open(MODEL_PATH, "rb") as f:
         model = pickle.load(f)

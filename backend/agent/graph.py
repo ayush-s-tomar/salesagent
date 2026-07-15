@@ -1,6 +1,8 @@
 ﻿import os
 import json
+import queue
 import asyncio
+import threading
 from typing import AsyncGenerator
 from datetime import datetime, timedelta
 from langgraph.graph import StateGraph, END
@@ -79,11 +81,11 @@ def node_score(state: AgentState) -> AgentState:
     trace = state.get("trace", [])
     trace.append({"step": "score", "status": "running", "msg": "Scoring lead with ML model..."})
 
-    profile = state.get("profile", {})
+    profile = state.get("profile", {}) or {}
     features = {
         "has_company": 1 if profile.get("company") else 0,
         "has_title": 1 if profile.get("title") else 0,
-        "skills_count": len(profile.get("skills", [])),
+        "skills_count": len(profile.get("skills") or []),
         "has_summary": 1 if profile.get("summary") else 0,
         "has_news": 1 if state.get("company_news") else 0,
         "has_jobs": 1 if state.get("job_postings") else 0,
@@ -119,14 +121,18 @@ def node_email(state: AgentState) -> AgentState:
     trace = state.get("trace", [])
     trace.append({"step": "email", "status": "running", "msg": "Drafting personalized cold email..."})
 
-    profile = state.get("profile", {})
+    profile = state.get("profile", {}) or {}
     name = profile.get("name", "there")
     first_name = name.split()[0] if name else "there"
     company = profile.get("company", "") or ""
     title = profile.get("title", "")
-    news = state.get("company_news", "")[:500]
-    jobs = state.get("job_postings", "")[:400]
-    tech = state.get("tech_stack", "")[:300]
+
+    # FIX: state values can be None (key present, tool never called) rather than
+    # absent, so `.get(key, "")` does NOT protect against None here — slicing
+    # None crashes the whole node. Coerce to "" explicitly before slicing.
+    news = (state.get("company_news") or "")[:500]
+    jobs = (state.get("job_postings") or "")[:400]
+    tech = (state.get("tech_stack") or "")[:300]
     sender_name = os.getenv("SENDER_NAME", "the sender")
 
     if company:
@@ -190,7 +196,7 @@ def node_save(state: AgentState) -> AgentState:
     trace = state.get("trace", [])
     trace.append({"step": "save", "status": "running", "msg": "Saving to CRM pipeline..."})
 
-    profile = state.get("profile", {})
+    profile = state.get("profile", {}) or {}
 
     lead_id = save_lead({
         "name": profile.get("name", "Unknown"),
@@ -239,13 +245,9 @@ def build_graph():
 graph = build_graph()
 
 
-async def run_agent(
-    linkedin_url: str = None,
-    message: str = None,
-    lead_id: int = None,
-) -> AsyncGenerator[dict, None]:
-    """Run agent and stream trace events."""
-    initial_state: AgentState = {
+def fresh_state(linkedin_url: str = None, message: str = None, lead_id: int = None) -> AgentState:
+    """Build a clean initial state dict for a new agent run."""
+    return {
         "linkedin_url": linkedin_url,
         "message": message,
         "lead_id": lead_id,
@@ -262,22 +264,67 @@ async def run_agent(
         "errors": [],
     }
 
+
+_SENTINEL = object()
+
+
+async def run_agent(
+    linkedin_url: str = None,
+    message: str = None,
+    lead_id: int = None,
+) -> AsyncGenerator[dict, None]:
+    """
+    Run the agent and stream trace events AS THEY HAPPEN.
+
+    FIX: the previous version called graph.invoke() (blocking until the whole
+    pipeline finished, ~30-45s) and only then replayed the stored trace with
+    artificial sleeps — so the SSE stream looked instant-then-silent instead
+    of live. This version runs graph.stream() in a background thread and
+    forwards each new trace entry to the async generator the moment it's
+    produced, via a thread-safe queue, so the frontend gets genuinely
+    incremental progress.
+    """
+    initial_state = fresh_state(linkedin_url=linkedin_url, message=message, lead_id=lead_id)
+
+    q: "queue.Queue" = queue.Queue()
+
+    def _worker():
+        try:
+            emitted = 0
+            final_state = initial_state
+            for chunk in graph.stream(initial_state, stream_mode="updates"):
+                node_name, node_state = next(iter(chunk.items()))
+                final_state = node_state
+                trace = node_state.get("trace", [])
+                # Only forward entries we haven't emitted yet (a node may log
+                # more than one trace line, e.g. "running" then "done", or an
+                # extra "retrying" line in node_email).
+                for entry in trace[emitted:]:
+                    q.put(entry)
+                emitted = len(trace)
+            q.put({
+                "step": "complete",
+                "status": "done",
+                "msg": "Lead processed successfully",
+                "data": {
+                    "profile": final_state.get("profile"),
+                    "score": final_state.get("lead_score"),
+                    "email": final_state.get("email_draft"),
+                    "deal_id": final_state.get("deal_id"),
+                    "followup": final_state.get("followup_date"),
+                },
+            })
+        except Exception as e:
+            q.put({"step": "error", "status": "error", "msg": str(e)})
+        finally:
+            q.put(_SENTINEL)
+
+    thread = threading.Thread(target=_worker, daemon=True)
+    thread.start()
+
     loop = asyncio.get_event_loop()
-    result = await loop.run_in_executor(None, graph.invoke, initial_state)
-
-    for event in result.get("trace", []):
-        yield event
-        await asyncio.sleep(0.1)
-
-    yield {
-        "step": "complete",
-        "status": "done",
-        "msg": "Lead processed successfully",
-        "data": {
-            "profile": result.get("profile"),
-            "score": result.get("lead_score"),
-            "email": result.get("email_draft"),
-            "deal_id": result.get("deal_id"),
-            "followup": result.get("followup_date"),
-        },
-    }
+    while True:
+        item = await loop.run_in_executor(None, q.get)
+        if item is _SENTINEL:
+            break
+        yield item
