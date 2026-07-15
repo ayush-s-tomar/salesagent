@@ -1,8 +1,13 @@
 # SalesAgent — Autonomous B2B Sales AI
+![Python](https://img.shields.io/badge/python-3.11-blue)
+![License](https://img.shields.io/badge/license-MIT-green)
+![FastAPI](https://img.shields.io/badge/backend-FastAPI-009688)
+![React](https://img.shields.io/badge/frontend-React-61DAFB)
+![Status](https://img.shields.io/badge/status-active-brightgreen)
 
 > An AI agent that researches a lead, scores them, and writes a personalized cold email — in 45 seconds, from just a LinkedIn URL.
 
-[🔗 Live Demo](https://salesagent-theta.vercel.app) &nbsp;|&nbsp; [⚙️ API Docs](https://salesagent-ufu7.onrender.com/docs) &nbsp;|&nbsp; [📝 Technical Writeup](https://dev.to/ayushsinghtomar/i-got-tired-of-writing-cold-emails-so-i-built-an-ai-agent-to-do-it-for-me-2m4h) &nbsp;|&nbsp; [👤 LinkedIn](https://www.linkedin.com/in/ayush-s-tomar/)
+[🔗 Live Demo](https://salesagent-ai.streamlit.app/) &nbsp;|&nbsp; [⚙️ API Docs](https://salesagent-ufu7.onrender.com/docs) &nbsp;|&nbsp; [📝 Technical Writeup](https://dev.to/ayushsinghtomar/i-got-tired-of-writing-cold-emails-so-i-built-an-ai-agent-to-do-it-for-me-2m4h) &nbsp;|&nbsp; [👤 LinkedIn](https://www.linkedin.com/in/ayush-s-tomar/)
 
 <p align="center">
   <img src="docs/demo-screenshot.png" alt="SalesAgent — one URL in, a scored, personalized lead out" width="800">
@@ -24,6 +29,10 @@ https://github.com/user-attachments/assets/f96c5bcb-776f-422f-99c3-821d74505d4a
 -->
 
 ---
+
+## Why I Built This
+
+I was spending 1–2 hours per lead doing manual research before writing a single cold email — checking LinkedIn, Googling company news, digging through job postings for pain points. It felt like exactly the kind of multi-step, tool-using task an LLM agent should own end-to-end, not just assist with. So I built one that does the whole loop: research → score → draft → save → remember.
 
 ## The Problem
 
