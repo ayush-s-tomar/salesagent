@@ -60,7 +60,7 @@ def scrape_linkedin_profile(linkedin_url: str) -> dict:
                     "name": f"{data.get('first_name', '')} {data.get('last_name', '')}".strip(),
                     "title": data.get("occupation", ""),
                     "company": data.get("experiences", [{}])[0].get("company", "") if data.get("experiences") else "",
-                    "location": data.get("city", ""),
+                    "location": _clean_location(data.get("city", "")),
                     "summary": data.get("summary", ""),
                     "skills": [s.get("name", "") for s in data.get("skills", [])[:10]],
                     "linkedin_url": linkedin_url,
@@ -74,6 +74,38 @@ def scrape_linkedin_profile(linkedin_url: str) -> dict:
     fallback_name = slug.replace("-", " ").title()
 
     return _search_based_profile(linkedin_url, fallback_name)
+
+
+def _clean_location(location: str) -> str:
+    """
+    Dedupe redundant country mentions in extracted location strings, e.g.
+    "Mountain View, California, United States, US" -> "Mountain View,
+    California, United States". The LLM extraction sometimes pulls both the
+    full country name and its abbreviation from the same source snippet
+    (a state's official abbreviation, or a country code tacked onto the end
+    by whatever page Tavily indexed) and includes both, which reads as a
+    typo-like repeat rather than genuinely new information.
+    """
+    if not location or not location.strip():
+        return location
+
+    COUNTRY_ALIASES = {
+        "US": "United States", "USA": "United States", "U.S.": "United States", "U.S.A.": "United States",
+        "UK": "United Kingdom", "U.K.": "United Kingdom",
+        "UAE": "United Arab Emirates",
+    }
+
+    parts = [p.strip() for p in location.split(",") if p.strip()]
+    cleaned = []
+    seen_normalized = set()
+    for part in parts:
+        normalized = COUNTRY_ALIASES.get(part.upper().rstrip("."), part).lower()
+        if normalized in seen_normalized:
+            continue
+        seen_normalized.add(normalized)
+        cleaned.append(part)
+
+    return ", ".join(cleaned)
 
 
 def _search_based_profile(linkedin_url: str, fallback_name: str) -> dict:
@@ -199,7 +231,7 @@ Return ONLY valid JSON, no markdown fences, no preamble, in this exact shape:
         "name": extracted.get("name") or fallback_name,
         "title": extracted.get("title") or "Professional",
         "company": extracted.get("company") or "",
-        "location": extracted.get("location") or "",
+        "location": _clean_location(extracted.get("location") or ""),
         "summary": extracted.get("summary") or "",
         "skills": extracted.get("skills") or [],
         "linkedin_url": linkedin_url,
