@@ -94,9 +94,20 @@ def _search_based_profile(linkedin_url: str, fallback_name: str) -> dict:
         # Now: both the URL and the name are required (implicit AND), and
         # results are restricted to linkedin.com so unrelated news articles
         # can't be picked up at all.
+        #
+        # FIX (location): added "location city" to the query terms so Tavily
+        # is more likely to surface snippets that actually mention where the
+        # person is based (previously the query only asked for title/company,
+        # so location almost never showed up in the returned snippets even
+        # though the extraction prompt below always asks for it).
+        # Also bumped max_results 5 -> 8 and added search_depth="advanced",
+        # which pulls fuller page content instead of short snippets — location
+        # is often buried below the fold on a LinkedIn snippet, not in the
+        # first line Tavily would otherwise return.
         results = _tavily().search(
-            query=f'"{linkedin_url}" "{fallback_name}" title company current role',
-            max_results=5,
+            query=f'"{linkedin_url}" "{fallback_name}" title company location city current role',
+            max_results=8,
+            search_depth="advanced",
             include_domains=["linkedin.com"],
         )
         snippets = [r.get("content", "") for r in results.get("results", [])]
