@@ -177,6 +177,70 @@ def find_tech_stack(company_name: str, company_website: Optional[str] = None) ->
         return f"Could not fetch tech stack: {e}"
 
 
+# ---------------------------------------------------------------------------
+# MCP-facing wrappers
+# ---------------------------------------------------------------------------
+# FIX: mcp_server/server.py imports `scrape_or_search_profile` and
+# `generate_outreach_email` from this module, but neither existed anywhere
+# in the codebase — the MCP server crashed on import with ImportError before
+# it could even start. These two functions give the MCP server the same
+# capabilities the LangGraph agent has, exposed as standalone callables that
+# don't require a full AgentState/graph run.
+
+def scrape_or_search_profile(linkedin_url: str) -> dict:
+    """
+    MCP tool entry point. `scrape_linkedin_profile` above already implements
+    exactly this "try Proxycurl, else search-and-extract" behavior, so this
+    is a thin, clearly-named alias for external MCP clients.
+    """
+    return scrape_linkedin_profile(linkedin_url)
+
+
+def generate_outreach_email(profile_data: dict, sender_name: str, sender_company: str) -> str:
+    """
+    MCP tool entry point. Drafts a personalized cold email from profile data
+    alone. Unlike agent.graph.node_email, this has no company_news /
+    job_postings context (an MCP caller may not have run research first) and
+    takes sender_name/sender_company as explicit args instead of reading
+    SENDER_NAME from the environment, since an external MCP client has no
+    reason to share this process's env vars.
+    """
+    # Local import to avoid a circular import: agent.llm imports
+    # TOOL_SCHEMAS/execute_tool from agent.tools, so agent.tools importing
+    # agent.llm at module load time would deadlock the import graph.
+    from agent.llm import chat
+
+    profile_data = profile_data or {}
+    name = profile_data.get("name") or "there"
+    first_name = name.split()[0] if name else "there"
+    title = profile_data.get("title", "")
+    company = profile_data.get("company") or ""
+    summary = profile_data.get("summary") or ""
+
+    company_line = f"at {company}" if company else "(no company on file - do not invent one)"
+
+    prompt = f"""Write a hyper-personalized B2B cold email to {name}, {title} {company_line}.
+
+Profile summary: {summary}
+
+Sender: {sender_name}, from {sender_company}
+
+Rules:
+- Subject line referencing something specific about the recipient
+- Address them as {first_name} (first name only)
+- STRICTLY under 150 words
+- Professional tone, not salesy
+- Sign off with exactly this name: {sender_name} - never use a bracketed placeholder
+- Simple, single call to action
+
+Return ONLY the email with Subject: on the first line."""
+
+    return chat(
+        messages=[{"role": "user", "content": prompt}],
+        system="You are an expert B2B sales copywriter. Write emails that get replies.",
+    )
+
+
 # Tool schemas for LLM tool-calling
 TOOL_SCHEMAS = [
     {
