@@ -1,11 +1,23 @@
 import os
 import json
+from typing import Optional
 from groq import Groq
 from agent.tools import TOOL_SCHEMAS, execute_tool
 
 MODEL = os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile")
 
-client = Groq(api_key=os.getenv("GROQ_API_KEY"))
+# FIX: same issue as agent/tools.py — constructing Groq() at import time
+# means importing this module crashes if GROQ_API_KEY isn't already in the
+# environment (e.g. mcp_server/server.py, which never calls load_dotenv()).
+# Lazy singleton defers this to first actual API call.
+_client: Optional[Groq] = None
+
+
+def _get_client() -> Groq:
+    global _client
+    if _client is None:
+        _client = Groq(api_key=os.getenv("GROQ_API_KEY"))
+    return _client
 
 
 def run_with_tools(prompt: str, system: str = None) -> tuple:
@@ -19,6 +31,7 @@ def run_with_tools(prompt: str, system: str = None) -> tuple:
     loop_messages = [{"role": "user", "content": prompt}]
     tool_log = []
     max_iterations = 10
+    client = _get_client()
 
     for _ in range(max_iterations):
         resp = client.chat.completions.create(
@@ -104,7 +117,7 @@ def chat(messages: list, system: str = None) -> str:
     if system:
         sys_msgs = [{"role": "system", "content": system}]
 
-    resp = client.chat.completions.create(
+    resp = _get_client().chat.completions.create(
         model=MODEL,
         messages=sys_msgs + messages,
         max_tokens=1500,

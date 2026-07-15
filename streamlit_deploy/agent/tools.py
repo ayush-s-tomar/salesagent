@@ -5,8 +5,34 @@ from typing import Optional
 from tavily import TavilyClient
 from groq import Groq
 
-tavily = TavilyClient(api_key=os.getenv("TAVILY_API_KEY", ""))
-groq_client = Groq(api_key=os.getenv("GROQ_API_KEY", ""))
+# FIX: both clients used to be constructed at MODULE IMPORT TIME:
+#   tavily = TavilyClient(api_key=os.getenv("TAVILY_API_KEY", ""))
+#   groq_client = Groq(api_key=os.getenv("GROQ_API_KEY", ""))
+# TavilyClient raises immediately if the key is empty — so simply doing
+# `import agent.tools` (e.g. from mcp_server/server.py, which never calls
+# load_dotenv() itself) crashed before any function in this file was even
+# called, regardless of whether that function needed Tavily at all.
+# Lazy singletons defer construction to first real use, after whatever
+# entry point (main.py, streamlit_app.py, mcp_server/server.py) has had a
+# chance to load environment variables.
+_tavily_client: Optional[TavilyClient] = None
+_groq_client: Optional[Groq] = None
+
+
+def _tavily() -> TavilyClient:
+    global _tavily_client
+    if _tavily_client is None:
+        _tavily_client = TavilyClient(api_key=os.getenv("TAVILY_API_KEY", ""))
+    return _tavily_client
+
+
+def _groq() -> Groq:
+    global _groq_client
+    if _groq_client is None:
+        _groq_client = Groq(api_key=os.getenv("GROQ_API_KEY", ""))
+    return _groq_client
+
+
 EXTRACT_MODEL = os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile")
 
 
@@ -59,7 +85,7 @@ def _search_based_profile(linkedin_url: str, fallback_name: str) -> dict:
     profile the way the old fallback did.
     """
     try:
-        results = tavily.search(
+        results = _tavily().search(
             query=f'"{linkedin_url}" OR "{fallback_name}" linkedin profile title company',
             max_results=5,
         )
@@ -100,7 +126,7 @@ Return ONLY valid JSON, no markdown fences, no preamble, in this exact shape:
 }}"""
 
     try:
-        resp = groq_client.chat.completions.create(
+        resp = _groq().chat.completions.create(
             model=EXTRACT_MODEL,
             messages=[{"role": "user", "content": extraction_prompt}],
             max_tokens=500,
@@ -137,7 +163,7 @@ def search_company_news(company_name: str) -> str:
     if not company_name or not company_name.strip():
         return "No company name available to search news for."
     try:
-        results = tavily.search(
+        results = _tavily().search(
             query=f"{company_name} latest news funding product launch 2025 2026",
             max_results=3,
         )
@@ -152,7 +178,7 @@ def analyze_job_postings(company_name: str) -> str:
     if not company_name or not company_name.strip():
         return "No company name available to search job postings for."
     try:
-        results = tavily.search(
+        results = _tavily().search(
             query=f"{company_name} hiring jobs 2025 2026 site:linkedin.com OR site:indeed.com",
             max_results=3,
         )
@@ -167,7 +193,7 @@ def find_tech_stack(company_name: str, company_website: Optional[str] = None) ->
     if not company_name or not company_name.strip():
         return "No company name available to search tech stack for."
     try:
-        results = tavily.search(
+        results = _tavily().search(
             query=f"{company_name} tech stack technology infrastructure engineering blog",
             max_results=2,
         )
@@ -180,13 +206,6 @@ def find_tech_stack(company_name: str, company_website: Optional[str] = None) ->
 # ---------------------------------------------------------------------------
 # MCP-facing wrappers
 # ---------------------------------------------------------------------------
-# FIX: mcp_server/server.py imports `scrape_or_search_profile` and
-# `generate_outreach_email` from this module, but neither existed anywhere
-# in the codebase — the MCP server crashed on import with ImportError before
-# it could even start. These two functions give the MCP server the same
-# capabilities the LangGraph agent has, exposed as standalone callables that
-# don't require a full AgentState/graph run.
-
 def scrape_or_search_profile(linkedin_url: str) -> dict:
     """
     MCP tool entry point. `scrape_linkedin_profile` above already implements
