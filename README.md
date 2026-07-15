@@ -16,7 +16,7 @@
 
 <!-- Option A: GitHub-hosted (best for README rendering) -->
 <!-- Upload docs/demo.mp4 via a GitHub Issue/PR comment to get a CDN link, then swap it in below: -->
-https://github.com/user-attachments/assets/REPLACE-WITH-YOUR-ASSET-ID
+https://github.com/user-attachments/assets/f96c5bcb-776f-422f-99c3-821d74505d4a
 
 <!-- Option B: YouTube thumbnail link (use this instead if your video is on YouTube) -->
 <!--
