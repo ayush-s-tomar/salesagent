@@ -85,9 +85,19 @@ def _search_based_profile(linkedin_url: str, fallback_name: str) -> dict:
     profile the way the old fallback did.
     """
     try:
+        # FIX: previous query used `"{linkedin_url}" OR "{fallback_name}" linkedin
+        # profile title company` — the OR let Tavily match ANY page containing
+        # generic words like "linkedin"/"profile"/"company", not necessarily
+        # this person. That's how a search for satya-nadella's profile came
+        # back with an article about Ryan Roslansky (LinkedIn's own CEO) —
+        # it matched on the word "linkedin", not the actual person.
+        # Now: both the URL and the name are required (implicit AND), and
+        # results are restricted to linkedin.com so unrelated news articles
+        # can't be picked up at all.
         results = _tavily().search(
-            query=f'"{linkedin_url}" OR "{fallback_name}" linkedin profile title company',
+            query=f'"{linkedin_url}" "{fallback_name}" title company current role',
             max_results=5,
+            include_domains=["linkedin.com"],
         )
         snippets = [r.get("content", "") for r in results.get("results", [])]
         combined = " ".join(snippets)[:3000]
@@ -139,6 +149,23 @@ Return ONLY valid JSON, no markdown fences, no preamble, in this exact shape:
             if raw.startswith("json"):
                 raw = raw[4:]
         extracted = json.loads(raw)
+
+        # FIX: safety net in case the search still drifts off-target despite
+        # the tighter query above. If the name the LLM extracted doesn't
+        # loosely match the name we expect from the URL slug, discard the
+        # extraction entirely rather than silently returning a stranger's
+        # profile data under this person's URL.
+        extracted_name = (extracted.get("name") or "").strip().lower()
+        fallback_lower = fallback_name.strip().lower()
+        if extracted_name and not (
+            extracted_name in fallback_lower or fallback_lower in extracted_name
+        ):
+            print(
+                f"Name mismatch: extracted '{extracted_name}' vs expected "
+                f"'{fallback_lower}' for {linkedin_url}, discarding extraction"
+            )
+            extracted = {}
+
     except json.JSONDecodeError:
         print(f"Profile extraction: model returned non-JSON for {linkedin_url}, using fallback name only.")
         extracted = {}
