@@ -321,12 +321,20 @@ with tab_agent:
                 col_profile, col_score = st.columns([3, 1])
                 with col_profile:
                     company_bit = f" at {profile.get('company')}" if profile.get("company") else ""
+                    # FIX: `.get('location', 'Location unknown')` only falls back
+                    # when the "location" key is entirely MISSING from the dict.
+                    # Our profile dict always has a "location" key (see tools.py),
+                    # just often set to "" when the search found nothing — so the
+                    # default text never fired and the UI showed a bare pin emoji
+                    # with nothing after it. `or` catches falsy values (None, "")
+                    # too, not just a missing key.
+                    location_text = profile.get('location') or 'Location unknown'
                     st.markdown(f"""
                     <div class="lead-card">
                         <div class="avatar">{initials}</div>
                         <h3>{profile.get('name', 'Unknown')}</h3>
                         <div class="role">{profile.get('title', '')}{company_bit}</div>
-                        <div class="meta-row">📍 {profile.get('location', 'Location unknown')}</div>
+                        <div class="meta-row">📍 {location_text}</div>
                     </div>
                     """, unsafe_allow_html=True)
                 with col_score:
