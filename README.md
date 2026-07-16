@@ -8,7 +8,7 @@
 
 > An AI agent that researches a lead, scores them, and writes a personalized cold email — in 45 seconds, from just a LinkedIn URL.
 
-[🔗 Live Demo](https://salesagent-ai.streamlit.app/) &nbsp;|&nbsp; [⚙️ API Docs](https://salesagent-ufu7.onrender.com/docs) &nbsp;|&nbsp; [📝 Technical Writeup](https://dev.to/ayushsinghtomar/i-got-tired-of-writing-cold-emails-so-i-built-an-ai-agent-to-do-it-for-me-2m4h) &nbsp;|&nbsp; [👤 LinkedIn](https://www.linkedin.com/in/ayush-s-tomar/)
+[🔗 Live Demo (frontend)](https://salesagent-ai.streamlit.app/) &nbsp;|&nbsp; [⚙️ API Docs (backend)](https://salesagent-ufu7.onrender.com/docs) &nbsp;|&nbsp; [📝 Technical Writeup](https://dev.to/ayushsinghtomar/i-got-tired-of-writing-cold-emails-so-i-built-an-ai-agent-to-do-it-for-me-2m4h) &nbsp;|&nbsp; [👤 LinkedIn](https://www.linkedin.com/in/ayush-s-tomar/)
 
 <p align="center">
   <img src="docs/demo-screenshot.png" alt="SalesAgent — one URL in, a scored, personalized lead out" width="800">
@@ -20,14 +20,7 @@
 
 ### 🎥 Demo Video
 
-<!-- Option A: GitHub-hosted (best for README rendering) -->
-<!-- Upload docs/demo.mp4 via a GitHub Issue/PR comment to get a CDN link, then swap it in below: -->
 https://github.com/user-attachments/assets/f96c5bcb-776f-422f-99c3-821d74505d4a
-
-<!-- Option B: YouTube thumbnail link (use this instead if your video is on YouTube) -->
-<!--
-[![Watch the demo](docs/demo-thumbnail.png)](https://youtu.be/YOUR-VIDEO-ID)
--->
 
 ---
 
@@ -77,19 +70,17 @@ LinkedIn URL → [Research] → [Score] → [Draft Email] → [Pipeline]
 
 **Generated email (real output):**
 ```
-Subject: on The Road to Quantum Advancements
+Subject: On the Road to Quantum Advancements
 
 Satya,
 
-I was excited to see Microsoft's showcase of native OpenClaw app for Windows,
-Unmetered Agentic AI models, and the preview of the Microsoft quantum computer
+I was excited to see Microsoft's showcase of the native OpenClaw app for Windows,
+unmetered agentic AI models, and the preview of the Microsoft quantum computer
 at Build 2026. Your emphasis on agent-first architecture aligns with my own
 research on how this shift in paradigm will drive the next wave of innovation...
 ```
 
-The agent found **real, live company data** — Microsoft Build 2026 announcements,
-quantum computing preview, hiring signals — and synthesized it into a targeted email.
-No templates. No placeholders.
+The agent found **real, live company data** — Microsoft Build 2026 announcements, quantum computing preview, hiring signals — and synthesized it into a targeted email. No templates. No placeholders.
 
 ---
 
@@ -105,7 +96,7 @@ No templates. No placeholders.
 | Backend | FastAPI + SQLite |
 | Frontend | React + Tailwind |
 | Backend deploy | Render |
-| Frontend deploy | Vercel |
+| Frontend deploy | Streamlit Community Cloud |
 
 ---
 
