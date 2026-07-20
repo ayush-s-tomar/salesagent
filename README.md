@@ -152,7 +152,8 @@ salesagent/
 │           └── Sidebar.js
 ├── docs/
 │   ├── demo-screenshot.png  # Polished before → after product shot
-│   └── demo.mp4             # Screen-recorded walkthrough (optional)
+│   ├── demo.gif             # Live agent trace walkthrough (GIF preview)
+│   └── demo.mp4             # Screen-recorded walkthrough
 ├── .github/
 │   └── workflows/
 │       └── ci.yml           # Runs smoke tests on every push/PR
