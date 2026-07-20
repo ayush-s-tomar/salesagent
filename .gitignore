@@ -27,3 +27,7 @@ Thumbs.db
 .vscode/
 .idea/
 backend/evals/runs/
+
+streamlit_deploy/.streamlit/secrets.toml
+
+*.pkl
