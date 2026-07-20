@@ -8,7 +8,7 @@
 
 > An AI agent that researches a lead, scores them, and writes a personalized cold email — in 45 seconds, from just a LinkedIn URL.
 
-[🔗 Live Demo (frontend)](https://salesagent-ai.streamlit.app/) &nbsp;|&nbsp; [⚙️ API Docs (backend)](https://salesagent-ufu7.onrender.com/docs) &nbsp;|&nbsp; [📝 Technical Writeup](https://dev.to/ayushsinghtomar/i-got-tired-of-writing-cold-emails-so-i-built-an-ai-agent-to-do-it-for-me-2m4h) &nbsp;|&nbsp; [👤 LinkedIn](https://www.linkedin.com/in/ayush-s-tomar/)
+[🔗 Live Demo (frontend)](https://salesagent-ai.streamlit.app/) &nbsp;|&nbsp; [📝 Technical Writeup](https://dev.to/ayushsinghtomar/i-got-tired-of-writing-cold-emails-so-i-built-an-ai-agent-to-do-it-for-me-2m4h) &nbsp;|&nbsp; [👤 LinkedIn](https://www.linkedin.com/in/ayush-s-tomar/)
 
 <p align="center">
   <img src="docs/demo-screenshot.png" alt="SalesAgent — one URL in, a scored, personalized lead out" width="800">
@@ -211,8 +211,8 @@ npm start
 | `POST` | `/api/emails/regenerate` | Regenerate email with different tone |
 
 ```bash
-# Quick test
-curl -X POST https://salesagent-ufu7.onrender.com/api/agent/run \
+# Quick test (after running the backend locally — see "Run Locally" above)
+curl -X POST http://localhost:8000/api/agent/run \
   -H "Content-Type: application/json" \
   -d '{"linkedin_url": "https://linkedin.com/in/satya-nadella"}'
 ```
@@ -236,6 +236,7 @@ curl -X POST https://salesagent-ufu7.onrender.com/api/agent/run \
 - **Free-tier LLM rate limits** (Groq) mean heavy concurrent usage may briefly slow or queue email generation.
 - **SQLite for persistence** — fine for a portfolio/demo scale, but a production version would move to Postgres for concurrent writes and durability.
 - **No authentication layer** — this is a single-user demo; a real CRM deployment would need proper multi-tenant auth before handling real prospect data.
+- **Backend is not hosted live** — the free-tier Render deployment was suspended, so the API is not reachable at a public URL right now. Run it locally with the steps above, or reach out and I can spin up a live instance on request.
 
 ---
 
