@@ -1,8 +1,6 @@
 ﻿import os
 import json
-import queue
 import asyncio
-import threading
 from typing import AsyncGenerator
 from datetime import datetime, timedelta
 from langgraph.graph import StateGraph, END
@@ -81,11 +79,11 @@ def node_score(state: AgentState) -> AgentState:
     trace = state.get("trace", [])
     trace.append({"step": "score", "status": "running", "msg": "Scoring lead with ML model..."})
 
-    profile = state.get("profile", {}) or {}
+    profile = state.get("profile", {})
     features = {
         "has_company": 1 if profile.get("company") else 0,
         "has_title": 1 if profile.get("title") else 0,
-        "skills_count": len(profile.get("skills") or []),
+        "skills_count": len(profile.get("skills", [])),
         "has_summary": 1 if profile.get("summary") else 0,
         "has_news": 1 if state.get("company_news") else 0,
         "has_jobs": 1 if state.get("job_postings") else 0,
@@ -100,6 +98,12 @@ def node_score(state: AgentState) -> AgentState:
 
 
 FORBIDDEN_PLACEHOLDERS = ["[Your Name]", "[Company]", "[Name]", "[Your Company]", "[Position]"]
+FORBIDDEN_PHRASES = [
+    "exciting to see", "impressive", "passion for innovation", "align with your vision",
+    "i noticed you're", "i saw", "i came across", "i'm sure you're looking",
+    "let's discuss how we can support", "your vision for", "team's focus on",
+    "i'd love to", "reach out", "circle back", "touch base",
+]
 MAX_EMAIL_WORDS = 150
 
 
@@ -112,27 +116,26 @@ def _validate_email(email: str) -> list:
     for ph in FORBIDDEN_PLACEHOLDERS:
         if ph.lower() in email.lower():
             violations.append(f"Contains forbidden placeholder: {ph}")
+    for phrase in FORBIDDEN_PHRASES:
+        if phrase.lower() in email.lower():
+            violations.append(f"Contains generic filler phrase: '{phrase}'")
     return violations
 
 
 def node_email(state: AgentState) -> AgentState:
     """Generate hyper-personalized cold email, with a self-correction pass
-    if the first draft breaks length or placeholder rules."""
+    if the first draft breaks length, placeholder, or generic-filler rules."""
     trace = state.get("trace", [])
     trace.append({"step": "email", "status": "running", "msg": "Drafting personalized cold email..."})
 
-    profile = state.get("profile", {}) or {}
+    profile = state.get("profile", {})
     name = profile.get("name", "there")
     first_name = name.split()[0] if name else "there"
     company = profile.get("company", "") or ""
     title = profile.get("title", "")
-
-    # FIX: state values can be None (key present, tool never called) rather than
-    # absent, so `.get(key, "")` does NOT protect against None here — slicing
-    # None crashes the whole node. Coerce to "" explicitly before slicing.
-    news = (state.get("company_news") or "")[:500]
-    jobs = (state.get("job_postings") or "")[:400]
-    tech = (state.get("tech_stack") or "")[:300]
+    news = state.get("company_news", "")[:500]
+    jobs = state.get("job_postings", "")[:400]
+    tech = state.get("tech_stack", "")[:300]
     sender_name = os.getenv("SENDER_NAME", "the sender")
 
     if company:
@@ -147,21 +150,37 @@ Use this intelligence:
 - Hiring signals / pain points: {jobs}
 - Tech stack: {tech}
 
-Rules:
-- Subject line: reference something specific about them
-- Opening: address them as {first_name} (first name only)
-- Mention a specific recent company event or initiative, only if real data was provided above
-- Body: connect their pain point (from job postings) to a solution
-- CTA: simple, one ask, not pushy
-- Length: STRICTLY under {MAX_EMAIL_WORDS} words, this is a hard limit
-- Tone: professional but human, not salesy
-- Sign off with exactly this name: {sender_name} - never use a bracketed placeholder for the sender name, company, or anything else
+HARD RULES:
+- Open the FIRST sentence with one concrete, dated fact pulled directly from the intelligence above
+  (an event, a number, a named product, a specific hire, a dollar figure, a date). Do NOT open with
+  a compliment or an observation about "focus" or "vision."
+- NEVER use these words/phrases anywhere in the email, even reworded: exciting, impressive, passion,
+  align with your vision, I noticed you're, I saw, I came across, I'm sure you're, let's discuss how
+  we can support, reach out, touch base, circle back. These are generic filler — if you catch yourself
+  about to write one, replace it with a specific fact instead.
+- Every sentence must contain either a specific fact from the intelligence above, or a concrete next
+  step. No sentence should be pure sentiment/praise with zero information content.
+- Subject line: reference the SAME specific fact used in the opening line, not a generic theme.
+- Body: connect one specific pain point (from job postings, verbatim detail if possible) to what the
+  sender's product does, in one sentence — not a vague "simplify your operations" claim.
+- CTA: one specific, low-friction ask (e.g. a 15-min call Tuesday), not "let's discuss" or "let's chat."
+- Length: STRICTLY under {MAX_EMAIL_WORDS} words.
+- Sign off with exactly this name: {sender_name} - never use a bracketed placeholder.
+
+Example of the bar to hit (specific, factual, zero filler):
+"Subject: Your Build 2026 quantum computing preview
+Satya, the OpenClaw app rollout and quantum computing preview you showcased at Build 2026 signal
+Microsoft is betting hard on agent-first infrastructure this year..."
 
 Return ONLY the email with Subject: on first line."""
 
     email = chat(
         messages=[{"role": "user", "content": base_prompt}],
-        system="You are an expert B2B sales copywriter. Write emails that get replies.",
+        system=(
+            "You are an expert B2B sales copywriter known for cutting every generic sentence. "
+            "You write only what a specific fact justifies — if there's no fact to support a "
+            "sentence, you cut the sentence rather than pad it with sentiment."
+        ),
     )
 
     violations = _validate_email(email)
@@ -177,12 +196,16 @@ Previous draft:
 {email}
 ---
 
-Rewrite it to fix every violation above. Keep the same personalization and quality,
-just fix the specific issues listed. Return ONLY the corrected email with Subject: on first line."""
+Rewrite it to fix every violation above. Replace any generic phrase with a specific fact from the
+original intelligence, or cut the sentence entirely. Keep the same length constraint and personalization.
+Return ONLY the corrected email with Subject: on first line."""
 
         email = chat(
             messages=[{"role": "user", "content": retry_prompt}],
-            system="You are an expert B2B sales copywriter. Write emails that get replies.",
+            system=(
+                "You are an expert B2B sales copywriter known for cutting every generic sentence. "
+                "You write only what a specific fact justifies."
+            ),
         )
 
     state["email_draft"] = email
@@ -196,7 +219,7 @@ def node_save(state: AgentState) -> AgentState:
     trace = state.get("trace", [])
     trace.append({"step": "save", "status": "running", "msg": "Saving to CRM pipeline..."})
 
-    profile = state.get("profile", {}) or {}
+    profile = state.get("profile", {})
 
     lead_id = save_lead({
         "name": profile.get("name", "Unknown"),
@@ -245,9 +268,13 @@ def build_graph():
 graph = build_graph()
 
 
-def fresh_state(linkedin_url: str = None, message: str = None, lead_id: int = None) -> AgentState:
-    """Build a clean initial state dict for a new agent run."""
-    return {
+async def run_agent(
+    linkedin_url: str = None,
+    message: str = None,
+    lead_id: int = None,
+) -> AsyncGenerator[dict, None]:
+    """Run agent and stream trace events."""
+    initial_state: AgentState = {
         "linkedin_url": linkedin_url,
         "message": message,
         "lead_id": lead_id,
@@ -264,67 +291,42 @@ def fresh_state(linkedin_url: str = None, message: str = None, lead_id: int = No
         "errors": [],
     }
 
-
-_SENTINEL = object()
-
-
-async def run_agent(
-    linkedin_url: str = None,
-    message: str = None,
-    lead_id: int = None,
-) -> AsyncGenerator[dict, None]:
-    """
-    Run the agent and stream trace events AS THEY HAPPEN.
-
-    FIX: the previous version called graph.invoke() (blocking until the whole
-    pipeline finished, ~30-45s) and only then replayed the stored trace with
-    artificial sleeps — so the SSE stream looked instant-then-silent instead
-    of live. This version runs graph.stream() in a background thread and
-    forwards each new trace entry to the async generator the moment it's
-    produced, via a thread-safe queue, so the frontend gets genuinely
-    incremental progress.
-    """
-    initial_state = fresh_state(linkedin_url=linkedin_url, message=message, lead_id=lead_id)
-
-    q: "queue.Queue" = queue.Queue()
-
-    def _worker():
-        try:
-            emitted = 0
-            final_state = initial_state
-            for chunk in graph.stream(initial_state, stream_mode="updates"):
-                node_name, node_state = next(iter(chunk.items()))
-                final_state = node_state
-                trace = node_state.get("trace", [])
-                # Only forward entries we haven't emitted yet (a node may log
-                # more than one trace line, e.g. "running" then "done", or an
-                # extra "retrying" line in node_email).
-                for entry in trace[emitted:]:
-                    q.put(entry)
-                emitted = len(trace)
-            q.put({
-                "step": "complete",
-                "status": "done",
-                "msg": "Lead processed successfully",
-                "data": {
-                    "profile": final_state.get("profile"),
-                    "score": final_state.get("lead_score"),
-                    "email": final_state.get("email_draft"),
-                    "deal_id": final_state.get("deal_id"),
-                    "followup": final_state.get("followup_date"),
-                },
-            })
-        except Exception as e:
-            q.put({"step": "error", "status": "error", "msg": str(e)})
-        finally:
-            q.put(_SENTINEL)
-
-    thread = threading.Thread(target=_worker, daemon=True)
-    thread.start()
-
     loop = asyncio.get_event_loop()
-    while True:
-        item = await loop.run_in_executor(None, q.get)
-        if item is _SENTINEL:
-            break
-        yield item
+    result = await loop.run_in_executor(None, graph.invoke, initial_state)
+
+    for event in result.get("trace", []):
+        yield event
+        await asyncio.sleep(0.1)
+
+    yield {
+        "step": "complete",
+        "status": "done",
+        "msg": "Lead processed successfully",
+        "data": {
+            "profile": result.get("profile"),
+            "score": result.get("lead_score"),
+            "email": result.get("email_draft"),
+            "deal_id": result.get("deal_id"),
+            "followup": result.get("followup_date"),
+        },
+    }
+
+
+def fresh_state(linkedin_url: str = None, message: str = None, lead_id: int = None) -> AgentState:
+    """Build a blank initial state for a new agent run."""
+    return {
+        "linkedin_url": linkedin_url,
+        "message": message,
+        "lead_id": lead_id,
+        "profile": None,
+        "company_news": None,
+        "job_postings": None,
+        "tech_stack": None,
+        "lead_score": None,
+        "sentiment": None,
+        "email_draft": None,
+        "deal_id": None,
+        "followup_date": None,
+        "trace": [],
+        "errors": [],
+    }

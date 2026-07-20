@@ -98,6 +98,12 @@ def node_score(state: AgentState) -> AgentState:
 
 
 FORBIDDEN_PLACEHOLDERS = ["[Your Name]", "[Company]", "[Name]", "[Your Company]", "[Position]"]
+FORBIDDEN_PHRASES = [
+    "exciting to see", "impressive", "passion for innovation", "align with your vision",
+    "i noticed you're", "i saw", "i came across", "i'm sure you're looking",
+    "let's discuss how we can support", "your vision for", "team's focus on",
+    "i'd love to", "reach out", "circle back", "touch base",
+]
 MAX_EMAIL_WORDS = 150
 
 
@@ -110,12 +116,15 @@ def _validate_email(email: str) -> list:
     for ph in FORBIDDEN_PLACEHOLDERS:
         if ph.lower() in email.lower():
             violations.append(f"Contains forbidden placeholder: {ph}")
+    for phrase in FORBIDDEN_PHRASES:
+        if phrase.lower() in email.lower():
+            violations.append(f"Contains generic filler phrase: '{phrase}'")
     return violations
 
 
 def node_email(state: AgentState) -> AgentState:
     """Generate hyper-personalized cold email, with a self-correction pass
-    if the first draft breaks length or placeholder rules."""
+    if the first draft breaks length, placeholder, or generic-filler rules."""
     trace = state.get("trace", [])
     trace.append({"step": "email", "status": "running", "msg": "Drafting personalized cold email..."})
 
@@ -141,21 +150,37 @@ Use this intelligence:
 - Hiring signals / pain points: {jobs}
 - Tech stack: {tech}
 
-Rules:
-- Subject line: reference something specific about them
-- Opening: address them as {first_name} (first name only)
-- Mention a specific recent company event or initiative, only if real data was provided above
-- Body: connect their pain point (from job postings) to a solution
-- CTA: simple, one ask, not pushy
-- Length: STRICTLY under {MAX_EMAIL_WORDS} words, this is a hard limit
-- Tone: professional but human, not salesy
-- Sign off with exactly this name: {sender_name} - never use a bracketed placeholder for the sender name, company, or anything else
+HARD RULES:
+- Open the FIRST sentence with one concrete, dated fact pulled directly from the intelligence above
+  (an event, a number, a named product, a specific hire, a dollar figure, a date). Do NOT open with
+  a compliment or an observation about "focus" or "vision."
+- NEVER use these words/phrases anywhere in the email, even reworded: exciting, impressive, passion,
+  align with your vision, I noticed you're, I saw, I came across, I'm sure you're, let's discuss how
+  we can support, reach out, touch base, circle back. These are generic filler — if you catch yourself
+  about to write one, replace it with a specific fact instead.
+- Every sentence must contain either a specific fact from the intelligence above, or a concrete next
+  step. No sentence should be pure sentiment/praise with zero information content.
+- Subject line: reference the SAME specific fact used in the opening line, not a generic theme.
+- Body: connect one specific pain point (from job postings, verbatim detail if possible) to what the
+  sender's product does, in one sentence — not a vague "simplify your operations" claim.
+- CTA: one specific, low-friction ask (e.g. a 15-min call Tuesday), not "let's discuss" or "let's chat."
+- Length: STRICTLY under {MAX_EMAIL_WORDS} words.
+- Sign off with exactly this name: {sender_name} - never use a bracketed placeholder.
+
+Example of the bar to hit (specific, factual, zero filler):
+"Subject: Your Build 2026 quantum computing preview
+Satya, the OpenClaw app rollout and quantum computing preview you showcased at Build 2026 signal
+Microsoft is betting hard on agent-first infrastructure this year..."
 
 Return ONLY the email with Subject: on first line."""
 
     email = chat(
         messages=[{"role": "user", "content": base_prompt}],
-        system="You are an expert B2B sales copywriter. Write emails that get replies.",
+        system=(
+            "You are an expert B2B sales copywriter known for cutting every generic sentence. "
+            "You write only what a specific fact justifies — if there's no fact to support a "
+            "sentence, you cut the sentence rather than pad it with sentiment."
+        ),
     )
 
     violations = _validate_email(email)
@@ -171,12 +196,16 @@ Previous draft:
 {email}
 ---
 
-Rewrite it to fix every violation above. Keep the same personalization and quality,
-just fix the specific issues listed. Return ONLY the corrected email with Subject: on first line."""
+Rewrite it to fix every violation above. Replace any generic phrase with a specific fact from the
+original intelligence, or cut the sentence entirely. Keep the same length constraint and personalization.
+Return ONLY the corrected email with Subject: on first line."""
 
         email = chat(
             messages=[{"role": "user", "content": retry_prompt}],
-            system="You are an expert B2B sales copywriter. Write emails that get replies.",
+            system=(
+                "You are an expert B2B sales copywriter known for cutting every generic sentence. "
+                "You write only what a specific fact justifies."
+            ),
         )
 
     state["email_draft"] = email
