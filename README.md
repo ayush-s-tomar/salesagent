@@ -18,6 +18,14 @@
   <em>One URL in. A scored, personalized lead out — in ~45 seconds.</em>
 </p>
 
+<p align="center">
+  <img src="docs/demo.gif" alt="SalesAgent — live agent trace walkthrough" width="800">
+</p>
+
+<p align="center">
+  <em>Live agent trace — research → score → draft → save, end to end.</em>
+</p>
+
 ### 🎥 Demo Video
 
 https://github.com/user-attachments/assets/2c5d825a-f060-4cbf-9dd5-97f622ee385f
