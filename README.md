@@ -20,7 +20,7 @@
 
 ### 🎥 Demo Video
 
-https://github.com/user-attachments/assets/f96c5bcb-776f-422f-99c3-821d74505d4a
+https://github.com/user-attachments/assets/2c5d825a-f060-4cbf-9dd5-97f622ee385f
 
 ---
 
@@ -63,24 +63,25 @@ LinkedIn URL → [Research] → [Score] → [Draft Email] → [Pipeline]
 **Agent trace (live, ~45 seconds):**
 ```
 🔍 Researching lead from LinkedIn...           ✅ DONE
-📊 Scoring lead with ML model...               ✅ DONE  →  84/100
+📊 Scoring lead with ML model...               ✅ DONE  →  90/100
 ✍️ Drafting personalized cold email...         ✅ DONE
-💾 Saving to CRM pipeline...                   ✅ DONE  →  Follow-up: 2026-06-26
+💾 Saving to CRM pipeline...                   ✅ DONE  →  Follow-up: 2026-06-03
 ```
 
 **Generated email (real output):**
 ```
-Subject: On the Road to Quantum Advancements
+Subject: Microsoft Build 2026 — Congrats on the Launch
 
 Satya,
 
-I was excited to see Microsoft's showcase of the native OpenClaw app for Windows,
-unmetered agentic AI models, and the preview of the Microsoft quantum computer
-at Build 2026. Your emphasis on agent-first architecture aligns with my own
-research on how this shift in paradigm will drive the next wave of innovation...
+Congrats on the Build 2026 keynote on June 2 — the native Windows AI agent
+rollout and the expanded Copilot runtime were a strong signal of where
+Microsoft is taking the platform. I noticed your team is actively hiring for
+several agent-infrastructure roles this quarter, which tells me you're
+scaling this fast...
 ```
 
-The agent found **real, live company data** — Microsoft Build 2026 announcements, quantum computing preview, hiring signals — and synthesized it into a targeted email. No templates. No placeholders.
+The agent found **real, live company data** — the Microsoft Build 2026 keynote, product launch details, hiring signals — and synthesized it into a fact-first, targeted email. No templates. No placeholders.
 
 ---
 
