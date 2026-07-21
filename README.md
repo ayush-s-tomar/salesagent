@@ -8,7 +8,9 @@
 
 > An AI agent that researches a lead, scores them, and writes a personalized cold email — in 45 seconds, from just a LinkedIn URL.
 
-[🔗 Live Demo (frontend)](https://salesagent-ai.streamlit.app/) &nbsp;|&nbsp; [📝 Technical Writeup](https://dev.to/ayushsinghtomar/i-got-tired-of-writing-cold-emails-so-i-built-an-ai-agent-to-do-it-for-me-2m4h) &nbsp;|&nbsp; [👤 LinkedIn](https://www.linkedin.com/in/ayush-s-tomar/)
+[📝 Technical Writeup](https://dev.to/ayushsinghtomar/i-got-tired-of-writing-cold-emails-so-i-built-an-ai-agent-to-do-it-for-me-2m4h) &nbsp;|&nbsp; [👤 LinkedIn](https://www.linkedin.com/in/ayush-s-tomar/) &nbsp;|&nbsp; [💻 GitHub](https://github.com/ayush-s-tomar)
+
+> **Note:** The frontend demo is hosted on Streamlit's free tier and the backend runs on Render's free tier, which sleeps after inactivity — so a cold start can take 30–60s, and the backend may occasionally be paused. The video below shows the full flow end-to-end if you'd rather not wait on a cold start. Happy to spin up a live instance on request.
 
 <p align="center">
   <img src="docs/demo-screenshot.png" alt="SalesAgent — one URL in, a scored, personalized lead out" width="800">
@@ -28,7 +30,7 @@
 
 ### 🎥 Demo Video
 
-https://github.com/user-attachments/assets/2c5d825a-f060-4cbf-9dd5-97f622ee385f
+https://github.com/user-attachments/assets/39a29c34-3776-450c-9c98-bdca8f3a140f
 
 ---
 
@@ -237,7 +239,7 @@ curl -X POST http://localhost:8000/api/agent/run \
 - **Free-tier LLM rate limits** (Groq) mean heavy concurrent usage may briefly slow or queue email generation.
 - **SQLite for persistence** — fine for a portfolio/demo scale, but a production version would move to Postgres for concurrent writes and durability.
 - **No authentication layer** — this is a single-user demo; a real CRM deployment would need proper multi-tenant auth before handling real prospect data.
-- **Backend is not hosted live** — the free-tier Render deployment was suspended, so the API is not reachable at a public URL right now. Run it locally with the steps above, or reach out and I can spin up a live instance on request.
+- **Free-tier hosting** — the backend runs on Render's free tier, which spins down after inactivity, and the frontend on Streamlit Community Cloud. Expect a cold-start delay on first use.
 
 ---
 
