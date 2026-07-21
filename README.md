@@ -8,9 +8,9 @@
 
 > An AI agent that researches a lead, scores them, and writes a personalized cold email — in 45 seconds, from just a LinkedIn URL.
 
-[📝 Technical Writeup](https://dev.to/ayushsinghtomar/i-got-tired-of-writing-cold-emails-so-i-built-an-ai-agent-to-do-it-for-me-2m4h) &nbsp;|&nbsp; [👤 LinkedIn](https://www.linkedin.com/in/ayush-s-tomar/) &nbsp;|&nbsp; [💻 GitHub](https://github.com/ayush-s-tomar)
+[🔗 Live Demo (frontend)](https://salesagent-ai.streamlit.app/) &nbsp;|&nbsp; [📝 Technical Writeup](https://dev.to/ayushsinghtomar/i-got-tired-of-writing-cold-emails-so-i-built-an-ai-agent-to-do-it-for-me-2m4h) &nbsp;|&nbsp; [👤 LinkedIn](https://www.linkedin.com/in/ayush-s-tomar/) &nbsp;|&nbsp; [💻 GitHub](https://github.com/ayush-s-tomar)
 
-> **Note:** The frontend demo is hosted on Streamlit's free tier and the backend runs on Render's free tier, which sleeps after inactivity — so a cold start can take 30–60s, and the backend may occasionally be paused. The video below shows the full flow end-to-end if you'd rather not wait on a cold start. Happy to spin up a live instance on request.
+> **Note:** Hosted on free-tier infra (Render + Streamlit), so the backend may take 30–60s to wake up on first use. If it's mid cold-start, the demo video below shows the full flow.
 
 <p align="center">
   <img src="docs/demo-screenshot.png" alt="SalesAgent — one URL in, a scored, personalized lead out" width="800">
@@ -239,8 +239,26 @@ curl -X POST http://localhost:8000/api/agent/run \
 - **Free-tier LLM rate limits** (Groq) mean heavy concurrent usage may briefly slow or queue email generation.
 - **SQLite for persistence** — fine for a portfolio/demo scale, but a production version would move to Postgres for concurrent writes and durability.
 - **No authentication layer** — this is a single-user demo; a real CRM deployment would need proper multi-tenant auth before handling real prospect data.
-- **Free-tier hosting** — the backend runs on Render's free tier, which spins down after inactivity, and the frontend on Streamlit Community Cloud. Expect a cold-start delay on first use.
+- **Free-tier hosting** — the backend runs on Render's free tier, which spins down after inactivity, and the frontend on Streamlit Community Cloud. Expect a cold-start delay on first use. Happy to spin up a dedicated live instance on request.
 
 ---
+
+## 🤝 Contributing
+
+Contributions, issues, and feature requests are welcome! Feel free to check the [issues page](https://github.com/ayush-s-tomar/salesagent/issues).
+
+1. Fork the project
+2. Create your feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit your changes (`git commit -m 'Add some amazing feature'`)
+4. Push to the branch (`git push origin feature/amazing-feature`)
+5. Open a Pull Request
+
+## 📄 License
+
+Distributed under the MIT License. See `LICENSE` for more information.
+
+## 🙋 Author
+
+**Ayush Singh Tomar** — [GitHub](https://github.com/ayush-s-tomar)
 
 *Part of my AI developer portfolio — agents that do real, autonomous work, not chatbots with a prompt. See also: [AgentLoop](https://github.com/ayush-s-tomar/agentloop), a multi-step research agent with tool-use and long-term memory.*
