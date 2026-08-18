@@ -4,7 +4,7 @@ from typing import Optional
 from groq import Groq
 from agent.tools import TOOL_SCHEMAS, execute_tool
 
-MODEL = os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile")
+MODEL = os.getenv("GROQ_MODEL", "openai/gpt-oss-120b")
 
 # FIX: same issue as agent/tools.py — constructing Groq() at import time
 # means importing this module crashes if GROQ_API_KEY isn't already in the

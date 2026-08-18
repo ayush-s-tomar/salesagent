@@ -33,7 +33,7 @@ def _groq() -> Groq:
     return _groq_client
 
 
-EXTRACT_MODEL = os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile")
+EXTRACT_MODEL = os.getenv("GROQ_MODEL", "openai/gpt-oss-120b")
 
 
 def scrape_linkedin_profile(linkedin_url: str) -> dict:

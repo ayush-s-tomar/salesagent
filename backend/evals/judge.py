@@ -6,7 +6,7 @@ import json
 import re
 from groq import Groq
 
-JUDGE_MODEL = os.getenv("GROQ_JUDGE_MODEL", "llama-3.1-8b-instant")
+JUDGE_MODEL = os.getenv("GROQ_JUDGE_MODEL", "openai/gpt-oss-20b")
 client = Groq(api_key=os.getenv("GROQ_API_KEY"))
 
 JUDGE_SYSTEM = """You are a strict QA evaluator for a B2B cold-email generation agent.

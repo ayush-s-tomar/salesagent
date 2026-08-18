@@ -100,7 +100,7 @@ The agent found **real, live company data** — the Microsoft Build 2026 keynote
 | Layer | Technology |
 |-------|-----------|
 | Agent framework | LangGraph (StateGraph + tool-calling loop) |
-| LLM | Groq API (`llama-3.1-8b-instant`) |
+| LLM | Groq API (`openai/gpt-oss-120b`) |
 | Web intelligence | Tavily Search API |
 | LinkedIn enrichment | Proxycurl API (optional — fallback works without it) |
 | ML lead scoring | scikit-learn (Random Forest) |
