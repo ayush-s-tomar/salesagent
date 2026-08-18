@@ -8,9 +8,9 @@
 
 > An AI agent that researches a lead, scores them, and writes a personalized cold email — in 45 seconds, from just a LinkedIn URL.
 
-[🔗 Live Demo (frontend)](https://salesagent-ai.streamlit.app/) &nbsp;|&nbsp; [📝 Technical Writeup](https://dev.to/ayushsinghtomar/i-got-tired-of-writing-cold-emails-so-i-built-an-ai-agent-to-do-it-for-me-2m4h) &nbsp;|&nbsp; [👤 LinkedIn](https://www.linkedin.com/in/ayush-s-tomar/) &nbsp;|&nbsp; [💻 GitHub](https://github.com/ayush-s-tomar)
+[🔗 Live Demo (frontend)](https://salesagent-frontend-jwar.onrender.com) &nbsp;|&nbsp; [📝 Technical Writeup](https://dev.to/ayushsinghtomar/i-got-tired-of-writing-cold-emails-so-i-built-an-ai-agent-to-do-it-for-me-2m4h) &nbsp;|&nbsp; [👤 LinkedIn](https://www.linkedin.com/in/ayush-s-tomar/) &nbsp;|&nbsp; [💻 GitHub](https://github.com/ayush-s-tomar)
 
-> **Note:** Hosted on free-tier infra (Render + Streamlit), so the backend may take 30–60s to wake up on first use. If it's mid cold-start, the demo video below shows the full flow.
+> **Note:** Backend and frontend are both on Render's free tier, so the backend may take 30–60s to wake up on first use. If it's mid cold-start, the demo video below shows the full flow.
 
 <p align="center">
   <img src="docs/demo-screenshot.png" alt="SalesAgent — one URL in, a scored, personalized lead out" width="800">
@@ -64,6 +64,8 @@ LinkedIn URL → [Research] → [Score] → [Draft Email] → [Pipeline]
                    └──────── Long-term memory (SQLite) ─────┘
 ```
 
+**The scorer** is a Random Forest trained on 6 features (`has_company`, `has_title`, `skills_count`, `has_summary`, `has_news`, `has_jobs`) — weighted so active news coverage and open job postings count most (30% + 25% combined), since those best signal a company that's actively growing right now. It's trained on synthetic data with hand-set weights rather than real historical deal outcomes — a real production version would retrain this on actual won/lost CRM data. See `ml/scorer.py::train_and_save`.
+
 ---
 
 ## Demo Output
@@ -75,7 +77,7 @@ LinkedIn URL → [Research] → [Score] → [Draft Email] → [Pipeline]
 🔍 Researching lead from LinkedIn...           ✅ DONE
 📊 Scoring lead with ML model...               ✅ DONE  →  90/100
 ✍️ Drafting personalized cold email...         ✅ DONE
-💾 Saving to CRM pipeline...                   ✅ DONE  →  Follow-up: 2026-06-03
+💾 Saving to CRM pipeline...                   ✅ DONE  →  Follow-up: auto-scheduled
 ```
 
 **Generated email (real output):**
@@ -107,7 +109,7 @@ The agent found **real, live company data** — the Microsoft Build 2026 keynote
 | Backend | FastAPI + SQLite |
 | Frontend | React + Tailwind |
 | Backend deploy | Render |
-| Frontend deploy | Streamlit Community Cloud |
+| Frontend deploy | Render (Static Site) |
 
 ---
 
@@ -224,11 +226,11 @@ curl -X POST http://localhost:8000/api/agent/run \
 
 ## What I'd Add Next
 
-- **Vector memory** (ChromaDB) for semantic lead recall instead of keyword search
-- **Gmail integration** to send emails directly from the CRM
-- **Multi-agent mode** — separate Research, Scoring, and Writing agents collaborating
-- **Fine-tuned email model** trained on high-reply-rate cold email datasets
-- **Eval harness** with LLM-as-judge to auto-score email quality
+- **Retrain the scorer on real outcomes** — swap the synthetic hand-weighted training data for actual won/lost deal history once there's enough volume, so the model learns real signal instead of my guessed weights
+- **Tighten LinkedIn extraction** — replace the URL-slug fallback with a more reliable enrichment path so `_parse_name_from_url` mismatches (see Known Limitations) become rarer
+- **Wire up `evals/judge.py` in CI** — the LLM-as-judge scorer already exists locally; next step is running it automatically on every PR so email-quality regressions get caught before merge, not after
+- **Postgres migration** — move off SQLite once this needs concurrent writes from more than one user
+- **Gmail integration** — send drafted emails directly from the CRM instead of copy-paste
 
 ---
 
@@ -239,7 +241,7 @@ curl -X POST http://localhost:8000/api/agent/run \
 - **Free-tier LLM rate limits** (Groq) mean heavy concurrent usage may briefly slow or queue email generation.
 - **SQLite for persistence** — fine for a portfolio/demo scale, but a production version would move to Postgres for concurrent writes and durability.
 - **No authentication layer** — this is a single-user demo; a real CRM deployment would need proper multi-tenant auth before handling real prospect data.
-- **Free-tier hosting** — the backend runs on Render's free tier, which spins down after inactivity, and the frontend on Streamlit Community Cloud. Expect a cold-start delay on first use. Happy to spin up a dedicated live instance on request.
+- **Free-tier hosting** — both backend and frontend run on Render's free tier, so the backend spins down after inactivity. Expect a cold-start delay of 30–60s on first use. Happy to spin up a dedicated live instance on request.
 
 ---
 
