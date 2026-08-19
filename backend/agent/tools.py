@@ -55,14 +55,26 @@ def scrape_linkedin_profile(linkedin_url: str) -> dict:
                 timeout=15,
             )
             if resp.status_code == 200:
-                data = resp.json()
+                # FIX ('NoneType' object is not subscriptable):
+                # dict.get(key, default) ONLY falls back to `default` when
+                # the key is missing entirely. Proxycurl frequently returns
+                # a field present but explicitly `null` (e.g.
+                # "experiences": null, "skills": null) when it has no data
+                # for that profile. In that case data.get("experiences",
+                # [{}]) returns None (not [{}]), and the old code then did
+                # None[0] -> "'NoneType' object is not subscriptable".
+                # Fix: use `or` fallbacks, which catch BOTH "missing key"
+                # and "key present but None".
+                data = resp.json() or {}
+                experiences = data.get("experiences") or [{}]
+                skills = data.get("skills") or []
                 return {
-                    "name": f"{data.get('first_name', '')} {data.get('last_name', '')}".strip(),
-                    "title": data.get("occupation", ""),
-                    "company": data.get("experiences", [{}])[0].get("company", "") if data.get("experiences") else "",
-                    "location": _clean_location(data.get("city", "")),
-                    "summary": data.get("summary", ""),
-                    "skills": [s.get("name", "") for s in data.get("skills", [])[:10]],
+                    "name": f"{data.get('first_name') or ''} {data.get('last_name') or ''}".strip(),
+                    "title": data.get("occupation") or "",
+                    "company": experiences[0].get("company", "") if experiences else "",
+                    "location": _clean_location(data.get("city") or ""),
+                    "summary": data.get("summary") or "",
+                    "skills": [s.get("name", "") for s in skills[:10]],
                     "linkedin_url": linkedin_url,
                     "source": "proxycurl",
                 }
