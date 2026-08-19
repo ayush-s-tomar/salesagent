@@ -1,38 +1,23 @@
 # SalesAgent — Autonomous B2B Sales AI
-![Python](https://img.shields.io/badge/python-3.11-blue)
-![License](https://img.shields.io/badge/license-MIT-green)
-![FastAPI](https://img.shields.io/badge/backend-FastAPI-009688)
-![React](https://img.shields.io/badge/frontend-React-61DAFB)
-![Status](https://img.shields.io/badge/status-active-brightgreen)
-![CI](https://github.com/ayush-s-tomar/salesagent/actions/workflows/ci.yml/badge.svg)
 
-> An AI agent that researches a lead, scores them, and writes a personalized cold email — in 45 seconds, from just a LinkedIn URL.
+![Python](https://img.shields.io/badge/python-3.11-blue) ![License](https://img.shields.io/badge/license-MIT-green) ![FastAPI](https://img.shields.io/badge/FastAPI-backend-teal) ![React](https://img.shields.io/badge/React-frontend-61dafb) ![Status](https://img.shields.io/badge/status-CI%20passing-brightgreen)
 
-[🔗 Live Demo (frontend)](https://salesagent-frontend-jwar.onrender.com) &nbsp;|&nbsp; [📝 Technical Writeup](https://dev.to/ayushsinghtomar/i-got-tired-of-writing-cold-emails-so-i-built-an-ai-agent-to-do-it-for-me-2m4h) &nbsp;|&nbsp; [👤 LinkedIn](https://www.linkedin.com/in/ayush-s-tomar/) &nbsp;|&nbsp; [💻 GitHub](https://github.com/ayush-s-tomar)
+An AI agent that researches a lead, scores them, and writes a personalized cold email — in 45 seconds, from just a LinkedIn URL.
+
+🔗 [Live Demo (frontend)](https://salesagent-frontend-jwar.onrender.com)  |  📝 Technical Writeup  |  👤 [LinkedIn](https://www.linkedin.com/in/ayushsinghtomar/)  |  💻 [GitHub](https://github.com/ayush-s-tomar/salesagent)
 
 > **Note:** Backend and frontend are both on Render's free tier, so the backend may take 30–60s to wake up on first use. If it's mid cold-start, the demo video below shows the full flow.
 
-<p align="center">
-  <img src="docs/demo-screenshot.png" alt="SalesAgent — one URL in, a scored, personalized lead out" width="800">
-</p>
+**SalesAgent — one URL in, a scored, personalized lead out**
 
-<p align="center">
-  <em>One URL in. A scored, personalized lead out — in ~45 seconds.</em>
-</p>
+One URL in. A scored, personalized lead out — in ~45 seconds.
 
-<p align="center">
-  <img src="docs/demo.gif" alt="SalesAgent — live agent trace walkthrough" width="800">
-</p>
+**SalesAgent — live agent trace walkthrough**
 
-<p align="center">
-  <em>Live agent trace — research → score → draft → save, end to end.</em>
-</p>
+Live agent trace — research → score → draft → save, end to end.
 
-### 🎥 Demo Video
-
-https://github.com/user-attachments/assets/39a29c34-3776-450c-9c98-bdca8f3a140f
-
----
+## 🎥 Demo Video
+`SalesAgent.Demo.mp4`
 
 ## Why I Built This
 
@@ -42,21 +27,19 @@ I was spending 1–2 hours per lead doing manual research before writing a singl
 
 Manual B2B lead research takes 1–2 hours per lead: checking LinkedIn, Googling company news, reading job postings to infer pain points, then writing a personalized email from scratch.
 
-**SalesAgent compresses this to 45 seconds** — not a CRM with AI bolted on, but an AI agent that *is* the workflow.
-
----
+SalesAgent compresses this to 45 seconds — not a CRM with AI bolted on, but an AI agent that is the workflow.
 
 ## What It Does
 
 Paste a LinkedIn URL. The LangGraph agent autonomously runs a 5-step pipeline:
 
 | Step | What happens |
-|------|-------------|
-| 🔍 **Research** | Calls tools to search company news, analyze job postings for pain points, find tech stack |
-| 📊 **Score** | Random Forest ML model scores the lead 0–100 based on profile & company signals |
-| ✍️ **Draft** | Writes a hyper-personalized cold email referencing real company events & hiring signals |
-| 💾 **Save** | Adds enriched lead + deal to CRM pipeline with auto-scheduled follow-up |
-| 🧠 **Remember** | Stores full interaction history for future agent recall |
+|---|---|
+| 🔍 Research | Calls tools to search company news, analyze job postings for pain points, find tech stack |
+| 📊 Score | Random Forest ML model scores the lead 0–100 based on profile & company signals |
+| ✍️ Draft | Writes a hyper-personalized cold email referencing real company events & hiring signals |
+| 💾 Save | Adds enriched lead + deal to CRM pipeline with auto-scheduled follow-up |
+| 🧠 Remember | Stores full interaction history for future agent recall |
 
 ```
 LinkedIn URL → [Research] → [Score] → [Draft Email] → [Pipeline]
@@ -64,43 +47,40 @@ LinkedIn URL → [Research] → [Score] → [Draft Email] → [Pipeline]
                    └──────── Long-term memory (SQLite) ─────┘
 ```
 
-**The scorer** is a Random Forest trained on 6 features (`has_company`, `has_title`, `skills_count`, `has_summary`, `has_news`, `has_jobs`) — weighted so active news coverage and open job postings count most (30% + 25% combined), since those best signal a company that's actively growing right now. It's trained on synthetic data with hand-set weights rather than real historical deal outcomes — a real production version would retrain this on actual won/lost CRM data. See `ml/scorer.py::train_and_save`.
-
----
+The scorer is a Random Forest trained on 6 features (`has_company`, `has_title`, `skills_count`, `has_summary`, `has_news`, `has_jobs`) — weighted so active news coverage and open job postings count most (30% + 25% combined), since those best signal a company that's actively growing right now. It's trained on synthetic data with hand-set weights rather than real historical deal outcomes — a real production version would retrain this on actual won/lost CRM data. See `ml/scorer.py::train_and_save`.
 
 ## Demo Output
 
 **Input:** `https://www.linkedin.com/in/satya-nadella`
 
 **Agent trace (live, ~45 seconds):**
+
 ```
-🔍 Researching lead from LinkedIn...           ✅ DONE
+🔍 Researching lead from LinkedIn...           ✅ DONE  →  Found: Satya Nadella at Microsoft
 📊 Scoring lead with ML model...               ✅ DONE  →  90/100
 ✍️ Drafting personalized cold email...         ✅ DONE
 💾 Saving to CRM pipeline...                   ✅ DONE  →  Follow-up: auto-scheduled
 ```
 
 **Generated email (real output):**
+
 ```
-Subject: Microsoft Build 2026 — Congrats on the Launch
+Subject: August 13, 2026 — Senior/Principal Product Systems Engineer posting
 
-Satya,
-
-Congrats on the Build 2026 keynote on June 2 — the native Windows AI agent
-rollout and the expanded Copilot runtime were a strong signal of where
-Microsoft is taking the platform. I noticed your team is actively hiring for
-several agent-infrastructure roles this quarter, which tells me you're
-scaling this fast...
+Satya, the August 13 2026 posting for a Senior/Principal Product Systems
+Engineer in Cambridge cites AI, systems and networking research as core
+responsibilities. Our release-planner analytics platform pulls the Microsoft
+release planner tool data for Oct 2025–Mar 2026 and auto-generates
+engineer-specific feature views, cutting manual build-up time by 40% in
+internal tests...
 ```
 
-The agent found **real, live company data** — the Microsoft Build 2026 keynote, product launch details, hiring signals — and synthesized it into a fact-first, targeted email. No templates. No placeholders.
-
----
+The agent found real, live company data — an active engineering job posting, its specific responsibilities and location — and synthesized it into a fact-first, targeted email tied to a concrete hiring signal. No templates. No placeholders.
 
 ## Tech Stack
 
 | Layer | Technology |
-|-------|-----------|
+|---|---|
 | Agent framework | LangGraph (StateGraph + tool-calling loop) |
 | LLM | Groq API (`openai/gpt-oss-120b`) |
 | Web intelligence | Tavily Search API |
@@ -111,8 +91,6 @@ The agent found **real, live company data** — the Microsoft Build 2026 keynote
 | Backend deploy | Render |
 | Frontend deploy | Render (Static Site) |
 
----
-
 ## What Makes This Agentic
 
 **Real tool-calling** — The LLM receives 4 tool schemas and decides per-step whether and how to call each one. Not a hardcoded pipeline. See `agent/llm.py::run_with_tools`.
@@ -122,8 +100,6 @@ The agent found **real, live company data** — the Microsoft Build 2026 keynote
 **Persistent deal memory** — Every interaction is stored in SQLite. Revisit a lead weeks later and the agent has full context: tone used, last touchpoint, company changes.
 
 **Live SSE trace** — Every node streams a Server-Sent Event to the UI in real time, showing exactly what the agent is doing step by step.
-
----
 
 ## Project Structure
 
@@ -166,8 +142,6 @@ salesagent/
 └── README.md
 ```
 
----
-
 ## Run Locally
 
 ```bash
@@ -198,22 +172,21 @@ npm start
 ```
 
 **Free API keys (no credit card required):**
+
 - Groq → https://console.groq.com/keys
 - Tavily → https://app.tavily.com
-- Proxycurl → https://nubela.co/proxycurl *(optional, $0.01/profile — fallback works without it)*
-
----
+- Proxycurl → https://nubela.co/proxycurl (optional, $0.01/profile — fallback works without it)
 
 ## API Reference
 
 | Method | Endpoint | Description |
-|--------|----------|-------------|
-| `POST` | `/api/agent/run` | Run agent on LinkedIn URL (SSE stream) |
-| `GET` | `/api/leads/` | List all leads |
-| `GET` | `/api/leads/{id}` | Lead detail + interaction history |
-| `GET` | `/api/deals/` | All deals with pipeline stages |
-| `PATCH` | `/api/deals/{id}/stage` | Move deal to new stage |
-| `POST` | `/api/emails/regenerate` | Regenerate email with different tone |
+|---|---|---|
+| POST | `/api/agent/run` | Run agent on LinkedIn URL (SSE stream) |
+| GET | `/api/leads/` | List all leads |
+| GET | `/api/leads/{id}` | Lead detail + interaction history |
+| GET | `/api/deals/` | All deals with pipeline stages |
+| PATCH | `/api/deals/{id}/stage` | Move deal to new stage |
+| POST | `/api/emails/regenerate` | Regenerate email with different tone |
 
 ```bash
 # Quick test (after running the backend locally — see "Run Locally" above)
@@ -221,8 +194,6 @@ curl -X POST http://localhost:8000/api/agent/run \
   -H "Content-Type: application/json" \
   -d '{"linkedin_url": "https://linkedin.com/in/satya-nadella"}'
 ```
-
----
 
 ## What I'd Add Next
 
@@ -232,18 +203,14 @@ curl -X POST http://localhost:8000/api/agent/run \
 - **Postgres migration** — move off SQLite once this needs concurrent writes from more than one user
 - **Gmail integration** — send drafted emails directly from the CRM instead of copy-paste
 
----
-
 ## Known Limitations
 
-- **LinkedIn profile scraping is best-effort.** Without a paid Proxycurl key, the agent falls back to inferring names/companies from the URL slug, which can occasionally mismatch (e.g. redirects or vanity URLs that don't match the expected profile). The agent detects and discards mismatched extractions rather than silently using wrong data — see `agent/graph.py::_parse_name_from_url`.
-- **Location extraction can produce redundant country tags** (e.g. "India, IN") on certain search result formats — deduped as a post-processing step, but the underlying search API's inconsistency remains.
-- **Free-tier LLM rate limits** (Groq) mean heavy concurrent usage may briefly slow or queue email generation.
-- **SQLite for persistence** — fine for a portfolio/demo scale, but a production version would move to Postgres for concurrent writes and durability.
-- **No authentication layer** — this is a single-user demo; a real CRM deployment would need proper multi-tenant auth before handling real prospect data.
-- **Free-tier hosting** — both backend and frontend run on Render's free tier, so the backend spins down after inactivity. Expect a cold-start delay of 30–60s on first use. Happy to spin up a dedicated live instance on request.
-
----
+- LinkedIn profile scraping is best-effort. Without a paid Proxycurl key, the agent falls back to inferring names/companies from the URL slug, which can occasionally mismatch (e.g. redirects or vanity URLs that don't match the expected profile). The agent detects and discards mismatched extractions rather than silently using wrong data — see `agent/graph.py::_parse_name_from_url`.
+- Location extraction can produce redundant country tags (e.g. "India, IN") on certain search result formats — deduped as a post-processing step, but the underlying search API's inconsistency remains.
+- Free-tier LLM rate limits (Groq) mean heavy concurrent usage may briefly slow or queue email generation.
+- SQLite for persistence — fine for a portfolio/demo scale, but a production version would move to Postgres for concurrent writes and durability.
+- No authentication layer — this is a single-user demo; a real CRM deployment would need proper multi-tenant auth before handling real prospect data.
+- Free-tier hosting — both backend and frontend run on Render's free tier, so the backend spins down after inactivity. Expect a cold-start delay of 30–60s on first use. Happy to spin up a dedicated live instance on request.
 
 ## 🤝 Contributing
 
@@ -263,4 +230,4 @@ Distributed under the MIT License. See `LICENSE` for more information.
 
 **Ayush Singh Tomar** — [GitHub](https://github.com/ayush-s-tomar)
 
-*Part of my AI developer portfolio — agents that do real, autonomous work, not chatbots with a prompt. See also: [AgentLoop](https://github.com/ayush-s-tomar/agentloop), a multi-step research agent with tool-use and long-term memory.*
+Part of my AI developer portfolio — agents that do real, autonomous work, not chatbots with a prompt. See also: AgentLoop, a multi-step research agent with tool-use and long-term memory.
