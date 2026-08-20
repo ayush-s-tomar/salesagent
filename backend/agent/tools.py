@@ -232,6 +232,31 @@ Return ONLY valid JSON, no markdown fences, no preamble, in this exact shape:
             )
             extracted = {}
 
+        # FIX (company hallucination): the name-mismatch check above only
+        # ever validated `name`. It did nothing to validate `company`, so
+        # even when the name matched correctly, `company` could be pulled
+        # from a completely unrelated snippet in the same search results
+        # (e.g. Tavily surfacing a loosely-related or thin-indexed result)
+        # and passed through untouched. That wrong company then got fed
+        # verbatim into search_company_news / analyze_job_postings, which
+        # returned real news about a real but unrelated company — the LLM
+        # then wrote a fact-first email using those facts, believing them
+        # to be about the correct person.
+        #
+        # Fix: require the extracted company string to actually appear in
+        # the search text we gave the LLM. This is a cheap grounding check,
+        # not proof of correctness, but it stops the LLM from inventing or
+        # misattributing a company name that isn't even present in the
+        # source material. If it fails, we drop company rather than trust it.
+        if extracted:
+            extracted_company = (extracted.get("company") or "").strip().lower()
+            if extracted_company and extracted_company not in combined.lower():
+                print(
+                    f"Company '{extracted_company}' not grounded in search text "
+                    f"for {linkedin_url}, discarding company field"
+                )
+                extracted["company"] = ""
+
     except json.JSONDecodeError:
         print(f"Profile extraction: model returned non-JSON for {linkedin_url}, using fallback name only.")
         extracted = {}
