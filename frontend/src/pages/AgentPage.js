@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Search, BarChart3, PenLine, Save, PartyPopper, Loader2, Play, Copy, CheckCircle2 } from 'lucide-react';
 
 const API = process.env.REACT_APP_API_URL || '';
@@ -11,6 +11,39 @@ export default function AgentPage() {
   const [trace, setTrace] = useState([]);
   const [result, setResult] = useState(null);
   const [error, setError] = useState('');
+  const [elapsed, setElapsed] = useState(0);
+  const [backendWarm, setBackendWarm] = useState(false);
+  const timerRef = useRef(null);
+
+  // FIX: Render's free-tier backend spins down after inactivity and takes
+  // 30-60s to cold-start on the first request. Previously the only way a
+  // visitor found this out was by staring at a static spinner for up to a
+  // minute with zero feedback — indistinguishable from the app being
+  // broken. Firing a lightweight health check the moment the page loads
+  // (before the user has even pasted a URL) wakes the backend early, so by
+  // the time they click "Run Agent" the real request is much more likely
+  // to hit an already-warm instance instead of paying the cold-start cost
+  // inline with their actual task.
+  useEffect(() => {
+    fetch(`${API}/api/health`)
+      .then(() => setBackendWarm(true))
+      .catch(() => {});
+  }, []);
+
+  // FIX: elapsed-time counter so "Running..." shows a moving number
+  // instead of a static label. A visitor watching "Running... 42s" can
+  // tell the app is alive and working; a static spinner past ~10s reads as
+  // frozen, and most people will bounce rather than wait out a silent
+  // 60-second cold start.
+  useEffect(() => {
+    if (running) {
+      setElapsed(0);
+      timerRef.current = setInterval(() => setElapsed(e => e + 1), 1000);
+    } else if (timerRef.current) {
+      clearInterval(timerRef.current);
+    }
+    return () => timerRef.current && clearInterval(timerRef.current);
+  }, [running]);
 
   async function runAgent() {
     if (!url.trim()) return;
@@ -56,7 +89,7 @@ export default function AgentPage() {
       </p>
 
       {/* Input */}
-      <div style={{ display: 'flex', gap: 12, marginBottom: 28 }}>
+      <div style={{ display: 'flex', gap: 12, marginBottom: 8 }}>
         <input
           value={url}
           onChange={e => setUrl(e.target.value)}
@@ -77,12 +110,13 @@ export default function AgentPage() {
             border: 'none', borderRadius: 8, color: 'white', fontWeight: 600,
             cursor: running ? 'not-allowed' : 'pointer', fontSize: 14,
             opacity: !url.trim() ? 0.5 : 1,
+            minWidth: 150, justifyContent: 'center',
           }}
         >
           {running ? (
             <>
               <Loader2 size={15} style={{ animation: 'spin 1s linear infinite' }} />
-              Running...
+              Running... {elapsed}s
             </>
           ) : (
             <>
@@ -92,6 +126,23 @@ export default function AgentPage() {
           )}
         </button>
       </div>
+
+      {/* Cold-start hint, only shown once the wait is long enough to matter */}
+      {running && elapsed >= 8 && elapsed < 70 && (
+        <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 20 }}>
+          {backendWarm
+            ? 'Working through research → scoring → drafting → saving...'
+            : 'First request can take 30–60s while the free-tier backend wakes up. Hang tight.'}
+        </div>
+      )}
+      {running && elapsed >= 70 && (
+        <div style={{ fontSize: 12, color: 'var(--yellow)', marginBottom: 20 }}>
+          This is taking longer than usual — the backend may still be waking up from a cold start, or a search step is running slow. Still working, no need to refresh.
+        </div>
+      )}
+      {!running && trace.length === 0 && !error && (
+        <div style={{ marginBottom: 20 }} />
+      )}
 
       {error && (
         <div style={{ padding: 12, background: '#2d1a1a', border: '1px solid var(--red)', borderRadius: 8, color: '#fca5a5', marginBottom: 20 }}>
@@ -131,7 +182,7 @@ export default function AgentPage() {
           {running && (
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 0', color: 'var(--muted)' }}>
               <Loader2 size={15} style={{ animation: 'spin 1s linear infinite' }} />
-              <span style={{ fontSize: 13 }}>Agent working...</span>
+              <span style={{ fontSize: 13 }}>Agent working... {elapsed}s elapsed</span>
             </div>
           )}
         </div>
