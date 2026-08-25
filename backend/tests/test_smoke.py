@@ -40,7 +40,17 @@ def test_agent_graph_builds():
 
 
 def test_lead_scorer_returns_valid_range():
-    """score_lead should always return a number between 0 and 100."""
+    """score_lead should always return a dict with a numeric score between
+    0 and 100, plus a list of human-readable reasons.
+
+    FIX: score_lead's return shape changed from a bare float to
+    {"score": float, "reasons": [str, ...]} (see agent/graph.py::node_score,
+    commit d4a1552) so the UI could show *why* a lead scored the way it did
+    instead of a naked number. This test wasn't updated alongside that
+    change, so it kept comparing the whole dict against an int with `<=`
+    and silently never ran cleanly until CI caught it — the app code itself
+    (node_score, ml/scorer.py) was already correct and unaffected.
+    """
     from ml.scorer import score_lead
 
     # A "strong" lead — every signal present
@@ -52,7 +62,12 @@ def test_lead_scorer_returns_valid_range():
         "has_news": 1,
         "has_jobs": 1,
     }
-    strong_score = score_lead(strong_features)
+    strong_result = score_lead(strong_features)
+    assert isinstance(strong_result, dict)
+    assert "score" in strong_result
+    assert "reasons" in strong_result
+    assert isinstance(strong_result["reasons"], list)
+    strong_score = strong_result["score"]
     assert 0 <= strong_score <= 100
 
     # A "weak" lead — nothing present
@@ -64,7 +79,8 @@ def test_lead_scorer_returns_valid_range():
         "has_news": 0,
         "has_jobs": 0,
     }
-    weak_score = score_lead(weak_features)
+    weak_result = score_lead(weak_features)
+    weak_score = weak_result["score"]
     assert 0 <= weak_score <= 100
 
     # A fuller profile should score at least as well as an empty one
