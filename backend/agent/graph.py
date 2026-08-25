@@ -1,5 +1,6 @@
 ﻿import os
 import json
+import re
 import asyncio
 from typing import AsyncGenerator
 from datetime import datetime, timedelta
@@ -121,8 +122,22 @@ FORBIDDEN_PHRASES = [
 ]
 MAX_EMAIL_WORDS = 150
 
+# FIX: matches "Month DD" / "Month DD, YYYY" style dates anywhere in the
+# email body, so a generated draft can be checked for whether it invented
+# a specific dated event that doesn't actually appear anywhere in the
+# real research text passed to the model. This was the concrete failure
+# observed in production: a generated email cited a "Jan 26 2026 policy
+# extending MAI employee office-commute eligibility" that had no basis in
+# the actual company-news/job-postings/tech-stack signals fetched for that
+# lead — a fabricated specific dressed up to look like a researched fact.
+_MONTH_DATE_PATTERN = re.compile(
+    r"\b(Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?"
+    r"|Aug(?:ust)?|Sep(?:tember)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)\.?\s+"
+    r"\d{1,2}(?:,?\s+\d{4})?\b"
+)
 
-def _validate_email(email: str) -> list:
+
+def _validate_email(email: str, primary_content: str = "") -> list:
     """Return a list of violation strings, empty if the email is clean."""
     violations = []
     word_count = len(email.split())
@@ -134,6 +149,24 @@ def _validate_email(email: str) -> list:
     for phrase in FORBIDDEN_PHRASES:
         if phrase.lower() in email.lower():
             violations.append(f"Contains generic filler phrase: '{phrase}'")
+
+    # FIX: fabrication tripwire. Any "Month DD[, YYYY]"-shaped date found in
+    # the generated email must also appear verbatim in the source research
+    # text (primary_content) — otherwise the model most likely invented it.
+    # This is a cheap heuristic, not a full fact-checker: it only catches
+    # fabricated *dates*, since that was the observed failure mode, and it
+    # can't tell a paraphrased-but-true date from a truly novel one. It's a
+    # tripwire to trigger the self-correction retry pass, not a guarantee
+    # of full factual accuracy.
+    if primary_content:
+        for date_match in _MONTH_DATE_PATTERN.finditer(email):
+            date_str = date_match.group(0)
+            if date_str not in primary_content:
+                violations.append(
+                    f"References a date not found in the source research: '{date_str}' "
+                    "— likely fabricated, not grounded in the primary signal."
+                )
+
     return violations
 
 
@@ -167,7 +200,8 @@ def _pick_primary_signal(news: str, jobs: str, tech: str) -> tuple:
 
 def node_email(state: AgentState) -> AgentState:
     """Generate hyper-personalized cold email, with a self-correction pass
-    if the first draft breaks length, placeholder, or generic-filler rules."""
+    if the first draft breaks length, placeholder, generic-filler, or
+    fabricated-fact rules."""
     trace = state.get("trace", [])
     trace.append({"step": "email", "status": "running", "msg": "Drafting personalized cold email..."})
 
@@ -201,26 +235,36 @@ HARD RULES:
   specific detail from the primary signal and build the opening, subject line, and body
   around that one thread. The secondary signal (if given) may appear ONCE, briefly, near
   the CTA — never as a second competing hook in the opening or subject line.
-- Open the FIRST sentence with one concrete, dated fact pulled directly from the PRIMARY
-  signal (an event, a number, a named product, a specific hire, a dollar figure, a date).
-  Do NOT open with a compliment or an observation about "focus" or "vision."
+- NEVER invent a fact, date, policy, event, product name, or number that is not explicitly
+  present in the PRIMARY signal text above. If the primary signal doesn't contain a specific
+  enough detail to open with, use the most specific detail it DOES actually contain — do not
+  supplement it with a plausible-sounding invented detail. A slightly less punchy TRUE detail
+  is always better than a fabricated one, because a fabricated detail can be factually wrong
+  and damage credibility with the recipient.
+- Open the FIRST sentence with one concrete fact pulled DIRECTLY from the PRIMARY signal text
+  above — quote or closely paraphrase something that is actually present in that text, not
+  something you infer, extrapolate, or imagine could plausibly be true. Do NOT open with a
+  compliment or an observation about "focus" or "vision."
 - NEVER use these words/phrases anywhere in the email, even reworded: exciting, impressive, passion,
   align with your vision, I noticed, I note, I saw, I came across, I'm sure you're, let's discuss how
   we can support, reach out, touch base, circle back. These are generic filler — if you catch yourself
   about to write one, replace it with a specific fact instead.
-- Every sentence must contain either a specific fact from the intelligence above, or a concrete next
-  step. No sentence should be pure sentiment/praise with zero information content.
-- Subject line: reference the SAME specific fact used in the opening line, not a generic theme.
+- Every sentence must contain either a specific fact drawn from the intelligence above, or a
+  concrete next step. No sentence should be pure sentiment/praise with zero information content,
+  and no sentence should introduce a "fact" that isn't traceable back to the intelligence given.
+- Subject line: reference the SAME specific fact used in the opening line, not a generic theme,
+  and not an invented one.
 - Body: connect the primary signal to what the sender's product does, in one sentence — not a
   vague "simplify your operations" claim.
 - CTA: one specific, low-friction ask (e.g. a 15-min call Tuesday), not "let's discuss" or "let's chat."
 - Length: STRICTLY under {MAX_EMAIL_WORDS} words.
 - Sign off with exactly this name: {sender_name} - never use a bracketed placeholder.
 
-Example of the bar to hit (specific, factual, ONE thread, zero filler):
-"Subject: Your Build 2026 quantum computing preview
-Satya, the quantum computing preview you showcased at Build 2026 signals Microsoft is betting
-hard on agent-first infrastructure this year..."
+Example of the STRUCTURE to hit (this is a template for FORM only — do not reuse or adapt any
+of its content; your opening fact must come only from the PRIMARY signal given to you above):
+"Subject: [the single specific fact from the PRIMARY signal, stated plainly]
+[Name], [that same fact expanded into one sentence, using only wording/details present in the
+PRIMARY signal]..."
 
 Return ONLY the email with Subject: on first line."""
 
@@ -230,11 +274,13 @@ Return ONLY the email with Subject: on first line."""
             "You are an expert B2B sales copywriter known for cutting every generic sentence "
             "and for never mixing more than one intelligence signal into a single email. "
             "You write only what a specific fact justifies — if there's no fact to support a "
-            "sentence, you cut the sentence rather than pad it with sentiment."
+            "sentence, you cut the sentence rather than pad it with sentiment. You never "
+            "invent a fact, date, or event that was not given to you in the source material, "
+            "even if a fabricated one would sound more impressive."
         ),
     )
 
-    violations = _validate_email(email)
+    violations = _validate_email(email, primary_content)
 
     if violations:
         trace.append({"step": "email", "status": "running", "msg": f"Draft violated rules, retrying: {violations}"})
@@ -242,21 +288,28 @@ Return ONLY the email with Subject: on first line."""
         retry_prompt = f"""Your previous draft violated these rules:
 {violation_lines}
 
+Original source intelligence (the ONLY facts you may reference):
+---
+{primary_content}
+---
+
 Previous draft:
 ---
 {email}
 ---
 
-Rewrite it to fix every violation above. Replace any generic phrase with a specific fact from the
-original intelligence, or cut the sentence entirely. Keep the email anchored on ONE primary signal
-only. Keep the same length constraint and personalization.
+Rewrite it to fix every violation above. Replace any generic phrase, or any fact/date/event not
+present in the original source intelligence above, with a specific detail that IS actually present
+in that source text — or cut the sentence entirely if no true detail supports it. Keep the email
+anchored on ONE primary signal only. Keep the same length constraint and personalization.
 Return ONLY the corrected email with Subject: on first line."""
 
         email = chat(
             messages=[{"role": "user", "content": retry_prompt}],
             system=(
                 "You are an expert B2B sales copywriter known for cutting every generic sentence. "
-                "You write only what a specific fact justifies."
+                "You write only what a specific fact justifies, and you never invent a fact, date, "
+                "or event that isn't present in the source material given to you."
             ),
         )
 
