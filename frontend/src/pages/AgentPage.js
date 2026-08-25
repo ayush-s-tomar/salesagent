@@ -18,7 +18,7 @@ export default function AgentPage() {
   // FIX: Render's free-tier backend spins down after inactivity and takes
   // 30-60s to cold-start on the first request. Previously the only way a
   // visitor found this out was by staring at a static spinner for up to a
-  // minute with zero feedback — indistinguishable from the app being
+  // minute with zero feedback - indistinguishable from the app being
   // broken. Firing a lightweight health check the moment the page loads
   // (before the user has even pasted a URL) wakes the backend early, so by
   // the time they click "Run Agent" the real request is much more likely
@@ -85,7 +85,12 @@ export default function AgentPage() {
     <div style={{ padding: 32, maxWidth: 900, margin: '0 auto' }}>
       <h1 style={{ fontSize: 24, fontWeight: 700, marginBottom: 6 }}>AI Sales Agent</h1>
       <p style={{ color: 'var(--muted)', marginBottom: 28 }}>
-        Paste a LinkedIn URL → Agent researches, scores, drafts an email &amp; adds to pipeline in 45 seconds
+        {/* FIX: was hardcoded "45 seconds" - real end-to-end runs (cold start
+            included) were landing at 75-85s, so the claim didn't match what
+            a visitor actually experienced. Framed as a range instead of a
+            single number, with the cold-start caveat folded in up front
+            rather than surfacing only after the visitor is already waiting. */}
+        Paste a LinkedIn URL → Agent researches, scores, drafts an email &amp; adds to pipeline in ~45-90s (first run may take longer while the free-tier backend wakes up)
       </p>
 
       {/* Input */}
@@ -190,7 +195,7 @@ export default function AgentPage() {
 
       {/* Results */}
       {result && (
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, alignItems: 'start' }}>
           {/* Lead card */}
           <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, padding: 20 }}>
             <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 12 }}>LEAD PROFILE</div>
@@ -205,6 +210,23 @@ export default function AgentPage() {
               </div>
               <div style={{ fontSize: 12, color: 'var(--muted)' }}>/100<br />lead score</div>
             </div>
+            {/* FIX: score_reasons was already being sent by the backend
+                (ml/scorer.py + agent/graph.py::node_score) but the UI never
+                rendered it, so the score looked like a bare unexplained
+                number. Shown as small tags under the score. */}
+            {result.score_reasons && result.score_reasons.length > 0 && (
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 10 }}>
+                {result.score_reasons.map((reason, i) => (
+                  <span key={i} style={{
+                    fontSize: 11, padding: '3px 8px', borderRadius: 999,
+                    background: 'var(--surface2)', border: '1px solid var(--border)',
+                    color: 'var(--muted)',
+                  }}>
+                    {reason}
+                  </span>
+                ))}
+              </div>
+            )}
             {result.deal_id && (
               <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 12, fontSize: 12, color: 'var(--green)' }}>
                 <CheckCircle2 size={14} />
@@ -216,9 +238,18 @@ export default function AgentPage() {
           {/* Email draft */}
           <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, padding: 20 }}>
             <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 12 }}>GENERATED EMAIL</div>
+            {/* FIX: maxHeight: 220 with overflow:auto was clipping the email
+                mid-sentence in a short visible window (only ~6 lines
+                visible before scroll), which looked broken/truncated in
+                screenshots since nothing signaled there was more below the
+                fold. Raised to 420 so a typical <150-word email (the hard
+                cap enforced in node_email/_validate_email) fits without
+                scrolling at all in the common case; overflow:auto is kept
+                as a safety net for the rare longer draft rather than as
+                the default viewing mode. */}
             <pre style={{
               fontFamily: 'var(--font)', fontSize: 12, lineHeight: 1.7,
-              color: 'var(--text)', whiteSpace: 'pre-wrap', maxHeight: 220, overflow: 'auto',
+              color: 'var(--text)', whiteSpace: 'pre-wrap', maxHeight: 420, overflow: 'auto',
             }}>
               {result.email}
             </pre>
