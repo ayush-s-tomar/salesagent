@@ -104,6 +104,36 @@ _rate_limit_window_seconds = 30
 _rate_limit_store: dict[str, float] = {}  # client_ip -> last_request_timestamp
 
 
+def _get_client_ip(request: Request) -> str:
+    """Resolve the real visitor IP behind Render + Cloudflare.
+
+    request.client.host sees whoever connects directly to this process —
+    behind Render's proxy (itself behind Cloudflare), that's Render's
+    internal load-balancer IP, not the visitor, and it can vary per
+    request. That's why the rate limiter below never triggered: every
+    call looked like a "new" IP even from the same visitor within the
+    same 30s window.
+
+    CF-Connecting-IP is set by Cloudflare itself on every request that
+    passes through it and can't be spoofed by an external caller on this
+    path (Cloudflare overwrites it before forwarding), so it's checked
+    first. X-Forwarded-For is a fallback for local/non-Cloudflare setups
+    and IS spoofable by a direct caller — an accepted limitation given
+    this endpoint's abuse-protection scope is "stop accidental double-
+    submits and casual scripting," not "defend against a determined
+    attacker."
+    """
+    cf_ip = request.headers.get("CF-Connecting-IP")
+    if cf_ip:
+        return cf_ip.strip()
+
+    xff = request.headers.get("X-Forwarded-For")
+    if xff:
+        return xff.split(",")[0].strip()
+
+    return request.client.host if request.client else "unknown"
+
+
 def _check_rate_limit(client_ip: str) -> Optional[float]:
     """Returns seconds remaining until the client may retry, or None if
     the request is allowed (and records this request's timestamp)."""
@@ -123,7 +153,7 @@ async def run_sales_agent(req: AgentRequest, request: Request):
     if not req.linkedin_url and not req.message:
         raise HTTPException(400, "Provide linkedin_url or message")
 
-    client_ip = request.client.host if request.client else "unknown"
+    client_ip = _get_client_ip(request)
     retry_after = _check_rate_limit(client_ip)
     if retry_after is not None:
         raise HTTPException(
