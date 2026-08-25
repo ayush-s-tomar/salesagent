@@ -107,9 +107,15 @@ def node_score(state: AgentState) -> AgentState:
 
 
 FORBIDDEN_PLACEHOLDERS = ["[Your Name]", "[Company]", "[Name]", "[Your Company]", "[Position]"]
+# FIX: "i noticed you're" only caught one exact phrasing. The model kept
+# finding near-miss ways to say the same generic-observation thing —
+# "I note Microsoft is hiring across multiple domains" slipped through
+# untouched because neither "i noticed" nor "i note" was in the list yet.
+# Broadened to catch the family of these openers (any tense/person of
+# "notice", plus "I note") rather than one fixed string.
 FORBIDDEN_PHRASES = [
     "exciting to see", "impressive", "passion for innovation", "align with your vision",
-    "i noticed you're", "i saw", "i came across", "i'm sure you're looking",
+    "i noticed", "i note", "i've noticed", "i saw", "i came across", "i'm sure you're looking",
     "let's discuss how we can support", "your vision for", "team's focus on",
     "i'd love to", "reach out", "circle back", "touch base",
 ]
@@ -199,7 +205,7 @@ HARD RULES:
   signal (an event, a number, a named product, a specific hire, a dollar figure, a date).
   Do NOT open with a compliment or an observation about "focus" or "vision."
 - NEVER use these words/phrases anywhere in the email, even reworded: exciting, impressive, passion,
-  align with your vision, I noticed you're, I saw, I came across, I'm sure you're, let's discuss how
+  align with your vision, I noticed, I note, I saw, I came across, I'm sure you're, let's discuss how
   we can support, reach out, touch base, circle back. These are generic filler — if you catch yourself
   about to write one, replace it with a specific fact instead.
 - Every sentence must contain either a specific fact from the intelligence above, or a concrete next
