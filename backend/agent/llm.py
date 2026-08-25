@@ -24,6 +24,40 @@ def _get_client() -> Groq:
 
 MAX_RETRIES = 3
 
+# FIX: Groq returns RateLimitError (HTTP 429) for two very different
+# situations that look identical at the exception-type level:
+#   1. TPM (tokens-per-minute) — a short-lived burst limit that clears in
+#      single-digit seconds. Retrying after a short wait is the right move.
+#   2. TPD (tokens-per-day) — the account's entire daily budget is spent.
+#      Groq's own error message says "Please try again in 10m23s" or
+#      longer. Retrying this with the same short-backoff logic as TPM
+#      means _create_with_retry can sleep for minutes across 3 attempts
+#      before finally raising — the request (and the server thread/worker
+#      handling it) hangs for a long time instead of failing fast with a
+#      clear "quota exhausted, try again later" message. On Render's single
+#      worker (WEB_CONCURRENCY=1), that also blocks every other visitor's
+#      request for the same window.
+# Detected by checking for "TPD" / "tokens per day" in Groq's error body,
+# which is present in the message for daily-quota errors specifically.
+_DAILY_QUOTA_PATTERN = re.compile(r"tokens per day|TPD", re.IGNORECASE)
+
+
+class DailyQuotaExceededError(Exception):
+    """
+    Raised instead of retrying when Groq's error indicates the daily
+    (TPD) token budget is exhausted rather than a short per-minute (TPM)
+    burst limit. Callers (e.g. main.py's SSE error handler) can catch this
+    specifically to show a clean "shared demo quota exhausted, try again
+    later" message instead of a raw retry-then-fail exception dump.
+    """
+    def __init__(self, wait_seconds: float, original: RateLimitError):
+        self.wait_seconds = wait_seconds
+        self.original = original
+        super().__init__(
+            f"Daily token quota exhausted. Retry in ~{wait_seconds:.0f}s. "
+            f"Original: {original}"
+        )
+
 
 def _seconds_from_rate_limit_error(err: RateLimitError) -> float:
     """
@@ -33,9 +67,18 @@ def _seconds_from_rate_limit_error(err: RateLimitError) -> float:
     would either under-wait (retry fails again) or over-wait (slower than
     necessary) relative to what Groq actually tells us.
     Falls back to a flat 5s if the message format ever changes.
+
+    Handles both plain-seconds ("8.865s") and minutes+seconds
+    ("10m23.376s") formats, since a TPD wait is reported in the latter.
     """
     try:
-        match = re.search(r"try again in ([\d.]+)s", str(err))
+        text = str(err)
+        min_sec_match = re.search(r"try again in (\d+)m([\d.]+)s", text)
+        if min_sec_match:
+            minutes = float(min_sec_match.group(1))
+            seconds = float(min_sec_match.group(2))
+            return minutes * 60 + seconds + 0.5
+        match = re.search(r"try again in ([\d.]+)s", text)
         if match:
             return float(match.group(1)) + 0.5  # small buffer
     except Exception:
@@ -43,21 +86,40 @@ def _seconds_from_rate_limit_error(err: RateLimitError) -> float:
     return 5.0
 
 
+def _is_daily_quota_error(err: RateLimitError) -> bool:
+    """True if this 429 is a daily (TPD) quota exhaustion rather than a
+    short per-minute (TPM) burst limit."""
+    return bool(_DAILY_QUOTA_PATTERN.search(str(err)))
+
+
 def _create_with_retry(client: Groq, **kwargs):
     """
     Wraps client.chat.completions.create with automatic retry on 429
-    (rate limit) errors. Without this, a single burst of testing/demo
-    traffic on the free tier surfaces a raw Groq error string straight to
-    the UI ("Rate limit reached... code: rate_limit_exceeded") instead of
-    the agent just completing a beat later — which looks like the app is
-    broken to anyone trying the live demo, even though the fix is just
-    "wait a few seconds and try the same call again."
+    (rate limit) errors — but only for short-lived per-minute limits.
+
+    Without retry at all, a single burst of testing/demo traffic on the
+    free tier surfaces a raw Groq error string straight to the UI ("Rate
+    limit reached... code: rate_limit_exceeded") instead of the agent
+    just completing a beat later — which looks like the app is broken to
+    anyone trying the live demo, even though the fix is just "wait a few
+    seconds and try the same call again."
+
+    But retrying blindly on EVERY RateLimitError is wrong when the error
+    is actually a daily quota exhaustion (TPD) rather than a per-minute
+    burst (TPM): Groq's own wait time for TPD can be 10+ minutes, and
+    sleeping the request thread for that long ties up the single Render
+    worker for everyone. Daily-quota errors are raised immediately as
+    DailyQuotaExceededError instead of being retried, so the caller can
+    fail fast with a clear message.
     """
     last_err = None
     for attempt in range(MAX_RETRIES):
         try:
             return client.chat.completions.create(**kwargs)
         except RateLimitError as e:
+            if _is_daily_quota_error(e):
+                wait = _seconds_from_rate_limit_error(e)
+                raise DailyQuotaExceededError(wait, e) from e
             last_err = e
             if attempt == MAX_RETRIES - 1:
                 raise

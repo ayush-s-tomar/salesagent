@@ -9,6 +9,7 @@ import json
 import time
 
 from agent.graph import run_agent
+from agent.llm import DailyQuotaExceededError
 from api.leads import router as leads_router
 from api.deals import router as deals_router
 from api.emails import router as emails_router
@@ -167,6 +168,15 @@ async def run_sales_agent(req: AgentRequest, request: Request):
         # raised, the generator just died mid-stream with no event — the
         # frontend would sit on its last "running" state forever with no
         # error shown. Now a failure is surfaced as a proper SSE event.
+        #
+        # FIX (follow-up): a Groq daily-quota exhaustion (DailyQuotaExceededError,
+        # raised by agent/llm.py instead of retrying) used to fall into the
+        # generic `except Exception` branch below and get str()'d straight
+        # to the UI as a raw Python/JSON exception dump — e.g. "Error code:
+        # 429 - {'error': {'message': 'Rate limit reached...TPD...
+        # rate_limit_exceeded'}}" — which reads as the app being broken.
+        # Caught specifically here first so the visitor sees a clean,
+        # actionable message with the real wait time instead.
         try:
             async for event in run_agent(
                 linkedin_url=req.linkedin_url,
@@ -174,6 +184,13 @@ async def run_sales_agent(req: AgentRequest, request: Request):
                 lead_id=req.lead_id,
             ):
                 yield f"data: {json.dumps(event)}\n\n"
+        except DailyQuotaExceededError as e:
+            wait_minutes = max(1, round(e.wait_seconds / 60))
+            friendly_msg = (
+                f"This demo shares a limited daily AI quota, which is currently exhausted. "
+                f"Please try again in about {wait_minutes} minute{'s' if wait_minutes != 1 else ''}."
+            )
+            yield f"data: {json.dumps({'step': 'error', 'status': 'error', 'msg': friendly_msg})}\n\n"
         except Exception as e:
             yield f"data: {json.dumps({'step': 'error', 'status': 'error', 'msg': str(e)})}\n\n"
         finally:
