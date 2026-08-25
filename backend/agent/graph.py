@@ -89,10 +89,19 @@ def node_score(state: AgentState) -> AgentState:
         "has_jobs": 1 if state.get("job_postings") else 0,
     }
 
-    ml_score = score_lead(features)
-    state["lead_score"] = ml_score
+    # score_lead now returns {"score": float, "reasons": [str, ...]} instead
+    # of a bare float, so the UI can show *why* the lead scored this way
+    # (e.g. "High: active news + currently hiring") rather than a naked
+    # number with no visible reasoning.
+    result = score_lead(features)
+    ml_score = result["score"]
+    reasons = result["reasons"]
 
-    trace.append({"step": "score", "status": "done", "msg": f"Lead score: {ml_score:.0f}/100"})
+    state["lead_score"] = ml_score
+    state["score_reasons"] = reasons
+
+    reason_str = f" ({', '.join(reasons)})" if reasons else ""
+    trace.append({"step": "score", "status": "done", "msg": f"Lead score: {ml_score:.0f}/100{reason_str}"})
     state["trace"] = trace
     return state
 
@@ -122,6 +131,34 @@ def _validate_email(email: str) -> list:
     return violations
 
 
+def _pick_primary_signal(news: str, jobs: str, tech: str) -> tuple:
+    """
+    Pick ONE dominant intelligence signal to anchor the email around, instead
+    of handing the LLM all three and letting it stitch together unrelated
+    facts (e.g. a funding number + an internship posting + a product name in
+    the same three sentences, which reads as disjointed rather than
+    fact-first).
+
+    Priority: news > jobs > tech — a recent news event is the most concrete,
+    dated hook; hiring signals are the next-best "why now"; tech stack is the
+    weakest/least dated signal so it's used only as a last resort.
+
+    Returns (primary_label, primary_content, supporting_note) — the LLM is
+    told to build the ENTIRE email around primary_content, and may only use
+    the supporting_note as one secondary detail near the CTA, not as a
+    second competing hook.
+    """
+    if news and news.strip():
+        supporting = f"Hiring signal (secondary, one mention max): {jobs[:200]}" if jobs else ""
+        return "company news", news, supporting
+    if jobs and jobs.strip():
+        supporting = f"Tech stack (secondary, one mention max): {tech[:150]}" if tech else ""
+        return "hiring signal", jobs, supporting
+    if tech and tech.strip():
+        return "tech stack", tech, ""
+    return "", "", ""
+
+
 def node_email(state: AgentState) -> AgentState:
     """Generate hyper-personalized cold email, with a self-correction pass
     if the first draft breaks length, placeholder, or generic-filler rules."""
@@ -143,17 +180,24 @@ def node_email(state: AgentState) -> AgentState:
     else:
         company_line = "(no company on file - do not invent one, focus on their role/industry instead)"
 
+    primary_label, primary_content, supporting_note = _pick_primary_signal(news, jobs, tech)
+
     base_prompt = f"""Write a hyper-personalized B2B cold email to {name}, {title} {company_line}.
 
-Use this intelligence:
-- Company news: {news}
-- Hiring signals / pain points: {jobs}
-- Tech stack: {tech}
+PRIMARY signal to build the ENTIRE email around ({primary_label}):
+{primary_content}
+
+{supporting_note if supporting_note else "(no secondary signal available — use only the primary signal above)"}
 
 HARD RULES:
-- Open the FIRST sentence with one concrete, dated fact pulled directly from the intelligence above
-  (an event, a number, a named product, a specific hire, a dollar figure, a date). Do NOT open with
-  a compliment or an observation about "focus" or "vision."
+- The whole email must read as ONE coherent story anchored on the PRIMARY signal above.
+  Do NOT give equal weight to multiple unrelated facts — pick the single strongest, most
+  specific detail from the primary signal and build the opening, subject line, and body
+  around that one thread. The secondary signal (if given) may appear ONCE, briefly, near
+  the CTA — never as a second competing hook in the opening or subject line.
+- Open the FIRST sentence with one concrete, dated fact pulled directly from the PRIMARY
+  signal (an event, a number, a named product, a specific hire, a dollar figure, a date).
+  Do NOT open with a compliment or an observation about "focus" or "vision."
 - NEVER use these words/phrases anywhere in the email, even reworded: exciting, impressive, passion,
   align with your vision, I noticed you're, I saw, I came across, I'm sure you're, let's discuss how
   we can support, reach out, touch base, circle back. These are generic filler — if you catch yourself
@@ -161,23 +205,24 @@ HARD RULES:
 - Every sentence must contain either a specific fact from the intelligence above, or a concrete next
   step. No sentence should be pure sentiment/praise with zero information content.
 - Subject line: reference the SAME specific fact used in the opening line, not a generic theme.
-- Body: connect one specific pain point (from job postings, verbatim detail if possible) to what the
-  sender's product does, in one sentence — not a vague "simplify your operations" claim.
+- Body: connect the primary signal to what the sender's product does, in one sentence — not a
+  vague "simplify your operations" claim.
 - CTA: one specific, low-friction ask (e.g. a 15-min call Tuesday), not "let's discuss" or "let's chat."
 - Length: STRICTLY under {MAX_EMAIL_WORDS} words.
 - Sign off with exactly this name: {sender_name} - never use a bracketed placeholder.
 
-Example of the bar to hit (specific, factual, zero filler):
+Example of the bar to hit (specific, factual, ONE thread, zero filler):
 "Subject: Your Build 2026 quantum computing preview
-Satya, the OpenClaw app rollout and quantum computing preview you showcased at Build 2026 signal
-Microsoft is betting hard on agent-first infrastructure this year..."
+Satya, the quantum computing preview you showcased at Build 2026 signals Microsoft is betting
+hard on agent-first infrastructure this year..."
 
 Return ONLY the email with Subject: on first line."""
 
     email = chat(
         messages=[{"role": "user", "content": base_prompt}],
         system=(
-            "You are an expert B2B sales copywriter known for cutting every generic sentence. "
+            "You are an expert B2B sales copywriter known for cutting every generic sentence "
+            "and for never mixing more than one intelligence signal into a single email. "
             "You write only what a specific fact justifies — if there's no fact to support a "
             "sentence, you cut the sentence rather than pad it with sentiment."
         ),
@@ -197,7 +242,8 @@ Previous draft:
 ---
 
 Rewrite it to fix every violation above. Replace any generic phrase with a specific fact from the
-original intelligence, or cut the sentence entirely. Keep the same length constraint and personalization.
+original intelligence, or cut the sentence entirely. Keep the email anchored on ONE primary signal
+only. Keep the same length constraint and personalization.
 Return ONLY the corrected email with Subject: on first line."""
 
         email = chat(
@@ -283,6 +329,7 @@ async def run_agent(
         "job_postings": None,
         "tech_stack": None,
         "lead_score": None,
+        "score_reasons": None,
         "sentiment": None,
         "email_draft": None,
         "deal_id": None,
@@ -305,6 +352,7 @@ async def run_agent(
         "data": {
             "profile": result.get("profile"),
             "score": result.get("lead_score"),
+            "score_reasons": result.get("score_reasons"),
             "email": result.get("email_draft"),
             "deal_id": result.get("deal_id"),
             "followup": result.get("followup_date"),
@@ -323,6 +371,7 @@ def fresh_state(linkedin_url: str = None, message: str = None, lead_id: int = No
         "job_postings": None,
         "tech_stack": None,
         "lead_score": None,
+        "score_reasons": None,
         "sentiment": None,
         "email_draft": None,
         "deal_id": None,

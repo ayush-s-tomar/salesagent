@@ -31,6 +31,17 @@ FEATURE_ORDER = [
     "has_jobs",
 ]
 
+# Human-readable label + bonus weight for each feature, in priority order.
+# Used to build the "why this score" breakdown shown in the UI. Kept in one
+# place so the reasons always match the actual bonus math in score_lead.
+FEATURE_REASONS = [
+    ("has_news", 8, "Active company news found"),
+    ("has_jobs", 7, "Currently hiring (growth signal)"),
+    ("has_company", 0, "Company identified"),
+    ("has_title", 0, "Job title identified"),
+    ("has_summary", 0, "Profile summary available"),
+]
+
 
 def train_and_save():
     """Train on synthetic data and save model. Run once on startup if model missing."""
@@ -84,10 +95,32 @@ def load_model():
     return model, scaler
 
 
-def score_lead(features: dict) -> float:
+def _build_reasons(features: dict) -> list:
+    """
+    Build a short list of plain-English reasons behind the score, ordered by
+    how much weight each signal actually carries (news > jobs > everything
+    else). Only includes signals that were actually present, so a thin
+    profile doesn't show a padded-looking reason list.
+    """
+    reasons = []
+    for key, _bonus, label in FEATURE_REASONS:
+        if features.get(key, 0):
+            reasons.append(label)
+    skills = features.get("skills_count", 0)
+    if skills >= 5:
+        reasons.append(f"{skills} listed skills")
+    return reasons[:3]  # top 3 keeps the UI line short
+
+
+def score_lead(features: dict) -> dict:
     """
     Score a lead 0-100.
     features: dict with keys from FEATURE_ORDER
+
+    Returns a dict: {"score": float, "reasons": [str, ...]} instead of a
+    bare float, so the frontend can show *why* a lead scored the way it
+    did (e.g. "High: active news + currently hiring") instead of a bare
+    number with no justification.
     """
     try:
         model, scaler = load_model()
@@ -103,7 +136,7 @@ def score_lead(features: dict) -> float:
         ])
 
         score = min(100, proba * 75 + bonus)
-        return round(score, 1)
+        return {"score": round(score, 1), "reasons": _build_reasons(features)}
     except Exception as e:
         print(f"Scoring error: {e}")
-        return 50.0
+        return {"score": 50.0, "reasons": []}
