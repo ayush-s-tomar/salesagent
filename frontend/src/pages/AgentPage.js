@@ -161,6 +161,16 @@ export default function AgentPage() {
           <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 12, fontFamily: 'var(--mono)' }}>AGENT TRACE</div>
           {trace.map((t, i) => {
             const Icon = STEP_ICONS[t.step];
+            // FIX: backend's event_stream (main.py) already emits
+            // {step: 'error', status: 'error', msg: str(e)} when a node
+            // throws (e.g. Groq daily token quota exhausted), but this
+            // component only ever checked `t.status === 'done'` — any
+            // other status, including 'error', fell through to the same
+            // styling as 'running'. A real failure then rendered as a
+            // bullet icon with a purple "RUNNING" badge and the raw
+            // exception text as the message, which looks exactly like the
+            // app being permanently stuck rather than clearly failed.
+            const isError = t.status === 'error';
             return (
               <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 0', borderBottom: '1px solid var(--border)' }}>
                 <span style={{
@@ -168,18 +178,18 @@ export default function AgentPage() {
                   width: 22, height: 22, flexShrink: 0,
                 }}>
                   {Icon ? (
-                    <Icon size={16} strokeWidth={1.9} color={t.status === 'done' ? 'var(--accent2)' : 'var(--muted)'} />
+                    <Icon size={16} strokeWidth={1.9} color={t.status === 'done' ? 'var(--accent2)' : isError ? 'var(--red)' : 'var(--muted)'} />
                   ) : (
-                    <span style={{ color: 'var(--muted)' }}>•</span>
+                    <span style={{ color: isError ? 'var(--red)' : 'var(--muted)' }}>•</span>
                   )}
                 </span>
-                <span style={{ flex: 1, color: t.status === 'done' ? 'var(--text)' : 'var(--muted)' }}>{t.msg}</span>
+                <span style={{ flex: 1, color: t.status === 'done' ? 'var(--text)' : isError ? 'var(--red)' : 'var(--muted)' }}>{t.msg}</span>
                 <span style={{
                   fontSize: 10, padding: '2px 8px', borderRadius: 4,
-                  background: t.status === 'done' ? '#064e3b' : '#1e1b4b',
-                  color: t.status === 'done' ? 'var(--green)' : 'var(--accent2)',
+                  background: t.status === 'done' ? '#064e3b' : isError ? '#450a0a' : '#1e1b4b',
+                  color: t.status === 'done' ? 'var(--green)' : isError ? 'var(--red)' : 'var(--accent2)',
                 }}>
-                  {t.status === 'done' ? 'DONE' : 'RUNNING'}
+                  {t.status === 'done' ? 'DONE' : isError ? 'FAILED' : 'RUNNING'}
                 </span>
               </div>
             );
