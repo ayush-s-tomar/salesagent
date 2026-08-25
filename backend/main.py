@@ -1,11 +1,12 @@
 from dotenv import load_dotenv
 load_dotenv()
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from typing import Optional
 import json
+import time
 
 from agent.graph import run_agent
 from api.leads import router as leads_router
@@ -82,11 +83,54 @@ def root():
     return {"status": "SalesAgent API running"}
 
 
+# FIX: /api/agent/run had no rate limiting at all. This project's Groq/
+# Tavily/Proxycurl API keys are single shared accounts (see README Known
+# Limitations) with hard token/request caps — one visitor double-clicking
+# "Run Agent," or anyone scripting requests directly against this public
+# endpoint (bypassing the frontend entirely, as can be done with a plain
+# curl call), could burn through the shared quota and 429 the agent for
+# every other visitor. A lightweight in-memory per-IP limiter is enough to
+# stop accidental double-submits and casual abuse without adding an auth
+# layer or external dependency — it does NOT protect against a
+# determined attacker spoofing IPs, but that's out of scope for a portfolio
+# demo with no sensitive data behind it.
+#
+# In-memory means this resets on every deploy/restart and does not share
+# state across multiple server processes/workers — acceptable here since
+# render.yaml runs WEB_CONCURRENCY=1 (single process). If this ever moves
+# to multiple workers or instances, replace with a shared store (Redis) or
+# a proper rate-limiting middleware/service instead of scaling this dict.
+_rate_limit_window_seconds = 30
+_rate_limit_store: dict[str, float] = {}  # client_ip -> last_request_timestamp
+
+
+def _check_rate_limit(client_ip: str) -> Optional[float]:
+    """Returns seconds remaining until the client may retry, or None if
+    the request is allowed (and records this request's timestamp)."""
+    now = time.monotonic()
+    last = _rate_limit_store.get(client_ip)
+    if last is not None:
+        elapsed = now - last
+        if elapsed < _rate_limit_window_seconds:
+            return round(_rate_limit_window_seconds - elapsed, 1)
+    _rate_limit_store[client_ip] = now
+    return None
+
+
 @app.post("/api/agent/run")
-async def run_sales_agent(req: AgentRequest):
+async def run_sales_agent(req: AgentRequest, request: Request):
     """Run the sales agent on a LinkedIn URL or natural language command."""
     if not req.linkedin_url and not req.message:
         raise HTTPException(400, "Provide linkedin_url or message")
+
+    client_ip = request.client.host if request.client else "unknown"
+    retry_after = _check_rate_limit(client_ip)
+    if retry_after is not None:
+        raise HTTPException(
+            429,
+            f"Please wait {retry_after}s before running the agent again. "
+            "This limit protects the shared demo API quota.",
+        )
 
     async def event_stream():
         # FIX: previously, if run_agent() (or anything inside the graph)
