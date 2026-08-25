@@ -13,6 +13,7 @@ class AgentState(TypedDict):
     job_postings: Optional[str]     # Pain points from job ads
     tech_stack: Optional[str]       # Company tech stack
     lead_score: Optional[float]     # ML score 0-100
+    score_reasons: Optional[List[str]]  # Why the lead scored this way (e.g. "Active company news found")
     sentiment: Optional[str]        # Past email sentiment
 
     # Outputs
