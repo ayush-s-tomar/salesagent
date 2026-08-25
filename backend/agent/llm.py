@@ -175,11 +175,18 @@ def chat(messages: list, system: str = None) -> str:
         _get_client(),
         model=MODEL,
         messages=sys_msgs + messages,
-        # FIX: was 1500. node_email enforces MAX_EMAIL_WORDS=150 (roughly
-        # 250-300 tokens of actual output), so 1500 was far more headroom
-        # than the task needs and ate into the shared TPM budget for no
-        # benefit. Trimmed to a still-generous 800.
-        max_tokens=800,
+        # FIX (regression): an earlier version of this trimmed max_tokens to
+        # 800 to reduce TPM pressure, but openai/gpt-oss-120b is a reasoning
+        # model — it spends tokens on internal chain-of-thought BEFORE
+        # writing the visible answer, and those reasoning tokens count
+        # against max_tokens too. At 800 the model was exhausting its whole
+        # budget mid-reasoning on the detailed node_email prompt and
+        # returning an empty message.content with no error (the API call
+        # still "succeeds"), which is why the email panel came back blank
+        # with no exception anywhere in the trace. Restored to 1500, which
+        # is still far below run_with_tools' iteration cost and leaves
+        # enough headroom for reasoning + a <150-word email.
+        max_tokens=1500,
     )
     return resp.choices[0].message.content or ""
 
