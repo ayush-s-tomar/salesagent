@@ -1,7 +1,9 @@
 import os
 import json
+import re
+import time
 from typing import Optional
-from groq import Groq
+from groq import Groq, RateLimitError
 from agent.tools import TOOL_SCHEMAS, execute_tool
 
 MODEL = os.getenv("GROQ_MODEL", "openai/gpt-oss-120b")
@@ -20,6 +22,50 @@ def _get_client() -> Groq:
     return _client
 
 
+MAX_RETRIES = 3
+
+
+def _seconds_from_rate_limit_error(err: RateLimitError) -> float:
+    """
+    Groq's 429 body includes the exact wait time, e.g. "Please try again
+    in 8.865s". Parsing it out lets us wait almost exactly as long as
+    needed instead of guessing with a fixed/exponential backoff, which
+    would either under-wait (retry fails again) or over-wait (slower than
+    necessary) relative to what Groq actually tells us.
+    Falls back to a flat 5s if the message format ever changes.
+    """
+    try:
+        match = re.search(r"try again in ([\d.]+)s", str(err))
+        if match:
+            return float(match.group(1)) + 0.5  # small buffer
+    except Exception:
+        pass
+    return 5.0
+
+
+def _create_with_retry(client: Groq, **kwargs):
+    """
+    Wraps client.chat.completions.create with automatic retry on 429
+    (rate limit) errors. Without this, a single burst of testing/demo
+    traffic on the free tier surfaces a raw Groq error string straight to
+    the UI ("Rate limit reached... code: rate_limit_exceeded") instead of
+    the agent just completing a beat later — which looks like the app is
+    broken to anyone trying the live demo, even though the fix is just
+    "wait a few seconds and try the same call again."
+    """
+    last_err = None
+    for attempt in range(MAX_RETRIES):
+        try:
+            return client.chat.completions.create(**kwargs)
+        except RateLimitError as e:
+            last_err = e
+            if attempt == MAX_RETRIES - 1:
+                raise
+            wait = _seconds_from_rate_limit_error(e)
+            time.sleep(wait)
+    raise last_err
+
+
 def run_with_tools(prompt: str, system: str = None) -> tuple:
     """
     Run the LLM with tool-calling in an agentic loop.
@@ -34,7 +80,8 @@ def run_with_tools(prompt: str, system: str = None) -> tuple:
     client = _get_client()
 
     for _ in range(max_iterations):
-        resp = client.chat.completions.create(
+        resp = _create_with_retry(
+            client,
             model=MODEL,
             messages=sys_msgs + loop_messages,
             tools=[{
@@ -50,7 +97,14 @@ def run_with_tools(prompt: str, system: str = None) -> tuple:
                 }
             } for t in TOOL_SCHEMAS],
             tool_choice="auto",
-            max_tokens=2000,
+            # FIX: was 2000. The tool-calling loop runs multiple times per
+            # agent request (research -> profile -> news -> jobs -> tech),
+            # and each call's max_tokens counts fully against the account's
+            # tokens-per-minute cap even when the actual response is much
+            # shorter. Trimming this reduces how fast a single agent run
+            # burns through the free-tier 8000 TPM budget, so fewer runs
+            # hit the 429 in the first place.
+            max_tokens=1200,
         )
 
         msg = resp.choices[0].message
@@ -117,10 +171,15 @@ def chat(messages: list, system: str = None) -> str:
     if system:
         sys_msgs = [{"role": "system", "content": system}]
 
-    resp = _get_client().chat.completions.create(
+    resp = _create_with_retry(
+        _get_client(),
         model=MODEL,
         messages=sys_msgs + messages,
-        max_tokens=1500,
+        # FIX: was 1500. node_email enforces MAX_EMAIL_WORDS=150 (roughly
+        # 250-300 tokens of actual output), so 1500 was far more headroom
+        # than the task needs and ate into the shared TPM budget for no
+        # benefit. Trimmed to a still-generous 800.
+        max_tokens=800,
     )
     return resp.choices[0].message.content or ""
 
