@@ -1,6 +1,6 @@
 # SalesAgent — Autonomous B2B Sales AI
 
-![Python](https://img.shields.io/badge/python-3.11-blue) ![License](https://img.shields.io/badge/license-MIT-green) ![FastAPI](https://img.shields.io/badge/FastAPI-backend-teal) ![React](https://img.shields.io/badge/React-frontend-61dafb) ![Status](https://img.shields.io/badge/status-live-brightgreen)
+![Python](https://img.shields.io/badge/python-3.11-blue) ![License](https://img.shields.io/badge/license-MIT-green) ![FastAPI](https://img.shields.io/badge/FastAPI-backend-teal) ![React](https://img.shields.io/badge/React-frontend-61dafb) ![Status](https://img.shields.io/badge/status-live-brightgreen) ![LangGraph](https://img.shields.io/badge/LangGraph-agent-1C3C3C)
 
 An AI agent that researches a lead, scores them, and writes a personalized cold email — in under a minute, from just a LinkedIn URL.
 
@@ -13,27 +13,31 @@ An AI agent that researches a lead, scores them, and writes a personalized cold 
 - ✅ **Grounded, not hallucinated** — every fact in the output is checked against the source it came from before being trusted
 - 🚀 **Live, working demo** — paste any public LinkedIn URL and watch it run end-to-end in the browser
 
+**Jump to:** [What it does](#what-it-does) · [What makes this agentic](#what-makes-this-agentic) · [Tech stack](#tech-stack) · [Run locally](#run-locally) · [Known limitations](#known-limitations)
+
+![SalesAgent — live agent trace: research, score, draft, save, end to end](docs/demo.gif)
+
+<details>
+<summary><b>📷 Screenshot + 🎥 full video walkthrough</b></summary>
+<br/>
+
 ![SalesAgent — one URL in, a scored, personalized lead out](docs/demo-screenshot.png)
 
 **One URL in. A scored, personalized lead out.**
 
-![SalesAgent — live agent trace walkthrough](docs/demo.gif)
+<br/>
 
-*Live agent trace — research → score → draft → save, end to end.*
+https://github.com/user-attachments/assets/a5b6394c-325b-4049-8a22-a891fb489f08
 
-## 🎥 Demo Video
+</details>
 
-`docs/demo.mp4`
+---
 
 ## Why I Built This
 
-I was spending 1–2 hours per lead doing manual research before writing a single cold email — checking LinkedIn, Googling company news, digging through job postings for pain points. It felt like exactly the kind of multi-step, tool-using task an LLM agent should own end-to-end, not just assist with. So I built one that does the whole loop: research → score → draft → save → remember.
+Manual B2B lead research takes 1–2 hours per lead: checking LinkedIn, Googling company news, reading job postings to infer pain points, then writing a personalized email from scratch. It felt like exactly the kind of multi-step, tool-using task an LLM agent should own end-to-end, not just assist with — so I built one that does the whole loop autonomously: research → score → draft → save → remember, compressing that hour-plus of manual work to under a minute.
 
-## The Problem
-
-Manual B2B lead research takes 1–2 hours per lead: checking LinkedIn, Googling company news, reading job postings to infer pain points, then writing a personalized email from scratch.
-
-SalesAgent compresses this to under a minute — not a CRM with AI bolted on, but an AI agent that is the workflow.
+This is not a CRM with AI bolted on. It's an AI agent that *is* the workflow.
 
 ## What It Does
 
@@ -99,17 +103,23 @@ The agent found real, live company data — an active engineering job posting, i
 
 ## What Makes This Agentic
 
-**Real tool-calling** — The LLM receives 4 tool schemas and decides per-step whether and how to call each one. Not a hardcoded pipeline. See `agent/llm.py::run_with_tools`.
+### Real tool-calling
+The LLM receives 4 tool schemas and decides per-step whether and how to call each one. Not a hardcoded pipeline. See `agent/llm.py::run_with_tools`.
 
-**Multi-signal reasoning** — The agent synthesizes company news + job postings + tech stack before writing a single word. Each source informs the output differently.
+### Multi-signal reasoning
+The agent synthesizes company news + job postings + tech stack before writing a single word. Each source informs the output differently.
 
-**Grounded extraction** — When no paid LinkedIn API key is available, profile data is extracted from live search results by an LLM, then cross-checked against the source text before being trusted. If a field (like company name) can't be traced back to something the search actually returned, it's dropped rather than guessed — see `agent/tools.py::_search_based_profile`.
+### Grounded extraction
+When no paid LinkedIn API key is available, profile data is extracted from live search results by an LLM, then cross-checked against the source text before being trusted. If a field (like company name) can't be traced back to something the search actually returned, it's dropped rather than guessed — see `agent/tools.py::_search_based_profile`.
 
-**Self-correcting email drafts** — Generated emails are validated against hard rules (no placeholders, no generic filler phrases, must open with a specific fact) before being shown. A draft that fails gets rewritten automatically. See `agent/graph.py::node_email`.
+### Self-correcting email drafts
+Generated emails are validated against hard rules (no placeholders, no generic filler phrases, must open with a specific fact) before being shown. A draft that fails gets rewritten automatically. See `agent/graph.py::node_email`.
 
-**Persistent deal memory** — Every interaction is stored in SQLite. Revisit a lead weeks later and the agent has full context: tone used, last touchpoint, company changes.
+### Persistent deal memory
+Every interaction is stored in SQLite. Revisit a lead weeks later and the agent has full context: tone used, last touchpoint, company changes.
 
-**Live SSE trace** — Every node streams a Server-Sent Event to the UI in real time, showing exactly what the agent is doing step by step, with elapsed time visible throughout.
+### Live SSE trace
+Every node streams a Server-Sent Event to the UI in real time, showing exactly what the agent is doing step by step, with elapsed time visible throughout.
 
 ## Project Structure
 
