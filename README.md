@@ -13,7 +13,7 @@ An AI agent that researches a lead, scores them, and writes a personalized cold 
 - ✅ **Grounded, not hallucinated** — every fact in the output is checked against the source it came from before being trusted
 - 🚀 **Live, working demo** — paste any public LinkedIn URL and watch it run end-to-end in the browser
 
-**Jump to:** [What it does](#what-it-does) · [What makes this agentic](#what-makes-this-agentic) · [Tech stack](#tech-stack) · [Run locally](#run-locally) · [Known limitations](#known-limitations)
+**Jump to:** [What it does](#what-it-does) · [What makes this agentic](#what-makes-this-agentic) · [Tech stack](#tech-stack) · [Run locally](#run-locally) · [Known limitations](#known-limitations) · [Roadmap](#roadmap)
 
 ![SalesAgent — live agent trace: research, score, draft, save, end to end](docs/demo.gif)
 
@@ -73,6 +73,12 @@ The scorer is a Random Forest trained on 6 features (`has_company`, `has_title`,
 ```
 
 **Generated email (real output):**
+
+<!-- TODO: the sample email below states "cutting manual build-up time by 40% in internal tests" —
+a specific statistic that doesn't trace to any source the agent retrieved, which cuts against the
+"grounded, not hallucinated" claim in the TL;DR. Before publishing, either confirm that figure comes
+from something real, or regenerate the sample (ideally on a fictional/anonymized lead) and paste the
+new real output here. Don't hand-edit "real output." -->
 
 ```
 Subject: August 13, 2026 — Senior/Principal Product Systems Engineer posting
@@ -216,14 +222,6 @@ curl -X POST http://localhost:8000/api/agent/run \
   -d '{"linkedin_url": "https://linkedin.com/in/satya-nadella"}'
 ```
 
-## What I'd Add Next
-
-- **Retrain the scorer on real outcomes** — swap the synthetic hand-weighted training data for actual won/lost deal history once there's enough volume, so the model learns real signal instead of my guessed weights
-- **Wire up `evals/judge.py` in CI** — the LLM-as-judge scorer already exists locally; next step is running it automatically on every PR so email-quality regressions get caught before merge, not after
-- Postgres migration — move off SQLite once this needs concurrent writes from more than one user
-- Gmail integration — send drafted emails directly from the CRM instead of copy-paste
-- Skip cold starts entirely — move the backend to a tier that stays warm, or add a scheduled keep-alive ping, once this needs to feel instant for a live audience
-
 ## Known Limitations
 
 - **Free-tier hosting** — the backend runs on Render's free tier, which spins down after inactivity. Expect a 30–60s cold-start delay on the first request after idle time; the UI surfaces live elapsed time and an explanation during this wait rather than a silent spinner (verified in practice — a cold-start run completed in 55s with the timer counting throughout).
@@ -231,8 +229,17 @@ curl -X POST http://localhost:8000/api/agent/run \
 - **Free-tier LLM rate limits (Groq)** mean heavy concurrent usage may briefly slow or queue email generation.
 - **SQLite for persistence** — fine for a portfolio/demo scale, but a production version would move to Postgres for concurrent writes and durability.
 - **No authentication layer** — this is a single-user demo; a real CRM deployment would need proper multi-tenant auth before handling real prospect data. (CORS is currently open to any origin to support this — see `backend/main.py`.)
+- **The lead scorer is trained on synthetic data** — see [What It Does](#what-it-does); scores are a directional signal, not a validated prediction of deal outcomes.
 
-## 🤝 Contributing
+## Roadmap
+
+- [ ] **Retrain the scorer on real outcomes** — swap the synthetic hand-weighted training data for actual won/lost deal history once there's enough volume, so the model learns real signal instead of my guessed weights
+- [ ] **Wire up `evals/judge.py` in CI** — the LLM-as-judge scorer already exists locally; next step is running it automatically on every PR so email-quality regressions get caught before merge, not after
+- [ ] Postgres migration — move off SQLite once this needs concurrent writes from more than one user
+- [ ] Gmail integration — send drafted emails directly from the CRM instead of copy-paste
+- [ ] Skip cold starts entirely — move the backend to a tier that stays warm, or add a scheduled keep-alive ping, once this needs to feel instant for a live audience
+
+## Contributing
 
 Contributions, issues, and feature requests are welcome! Feel free to check the [issues page](https://github.com/ayush-s-tomar/salesagent/issues).
 
@@ -242,12 +249,12 @@ Contributions, issues, and feature requests are welcome! Feel free to check the 
 4. Push to the branch (`git push origin feature/amazing-feature`)
 5. Open a Pull Request
 
-## 📄 License
+## License
 
 Distributed under the MIT License. See `LICENSE` for more information.
 
-## 🙋 Author
+## Author
 
-**Ayush Singh Tomar** — [GitHub](https://github.com/ayush-s-tomar)
+**Ayush Singh Tomar** — [GitHub](https://github.com/ayush-s-tomar) · [LinkedIn](https://www.linkedin.com/in/ayushsinghtomar) · [Portfolio](https://ayush-s-tomar.vercel.app)
 
-Part of my AI developer portfolio — agents that do real, autonomous work, not chatbots with a prompt. See also: AgentLoop, a multi-step research agent with tool-use and long-term memory.
+Part of my AI developer portfolio — agents that do real, autonomous work, not chatbots with a prompt. See also: [AgentLoop](https://github.com/ayush-s-tomar/agentloop), a multi-step research agent with tool-use and long-term memory.
