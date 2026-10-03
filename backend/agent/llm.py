@@ -248,7 +248,8 @@ def chat(messages: list, system: str = None) -> str:
         # with no exception anywhere in the trace. Restored to 1500, which
         # is still far below run_with_tools' iteration cost and leaves
         # enough headroom for reasoning + a <150-word email.
-        max_tokens=1500,
+        max_tokens=2500,
+        extra_body={"reasoning_effort": "low"},
     )
     return resp.choices[0].message.content or ""
 
