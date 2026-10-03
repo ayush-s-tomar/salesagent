@@ -84,7 +84,7 @@ def node_score(state: AgentState) -> AgentState:
     features = {
         "has_company": 1 if profile.get("company") else 0,
         "has_title": 1 if profile.get("title") else 0,
-        "skills_count": len(profile.get("skills", [])),
+        "skills_count": len(profile.get("skills") or []),
         "has_summary": 1 if profile.get("summary") else 0,
         "has_news": 1 if state.get("company_news") else 0,
         "has_jobs": 1 if state.get("job_postings") else 0,
@@ -242,9 +242,9 @@ def node_email(state: AgentState) -> AgentState:
     first_name = name.split()[0] if name else "there"
     company = profile.get("company", "") or ""
     title = profile.get("title", "")
-    news = state.get("company_news", "")[:500]
-    jobs = state.get("job_postings", "")[:400]
-    tech = state.get("tech_stack", "")[:300]
+    news = (state.get("company_news") or "")[:500]
+    jobs = (state.get("job_postings") or "")[:400]
+    tech = (state.get("tech_stack") or "")[:300]
     sender_name = os.getenv("SENDER_NAME", "the sender")
 
     if company:
