@@ -1,4 +1,4 @@
-﻿import os
+import os
 import json
 import re
 import asyncio
@@ -198,6 +198,38 @@ def _pick_primary_signal(news: str, jobs: str, tech: str) -> tuple:
     return "", "", ""
 
 
+def _chat_nonempty(messages: list, system: str, attempts: int = 3) -> str:
+    """FIX: chat() can return an empty string (e.g. a reasoning model that
+    spends its whole token budget on hidden reasoning and emits no visible
+    text). Previously that empty string was accepted as the "email": it
+    passed _validate_email (no words = no violations), the trace still said
+    "Personalized email drafted", and the UI showed a blank Generated Email
+    card. Retry a few times instead of accepting an empty draft."""
+    for _ in range(attempts):
+        text = chat(messages=messages, system=system)
+        if text and text.strip():
+            return text.strip()
+    return ""
+
+
+def _fallback_email(first_name: str, company: str, primary_content: str, sender_name: str) -> str:
+    """Last-resort draft so the card is never blank. Uses only the first
+    sentence of the real research text, never an invented fact."""
+    fact = ""
+    if primary_content and primary_content.strip():
+        fact = re.split(r"(?<=[.!?])\s+", primary_content.strip())[0][:200]
+    target = company or "your team"
+    opener = fact if fact else f"Quick question about how {target} prioritizes outbound leads."
+    return (
+        f"Subject: Quick question for {target}\n\n"
+        f"Hi {first_name},\n\n"
+        f"{opener}\n\n"
+        "We help sales teams turn signals like this into prioritized, personalized outreach. "
+        "Would a 15-minute call on Tuesday work?\n\n"
+        f"Best,\n{sender_name}"
+    )
+
+
 def node_email(state: AgentState) -> AgentState:
     """Generate hyper-personalized cold email, with a self-correction pass
     if the first draft breaks length, placeholder, generic-filler, or
@@ -268,7 +300,7 @@ PRIMARY signal]..."
 
 Return ONLY the email with Subject: on first line."""
 
-    email = chat(
+    email = _chat_nonempty(
         messages=[{"role": "user", "content": base_prompt}],
         system=(
             "You are an expert B2B sales copywriter known for cutting every generic sentence "
@@ -280,7 +312,13 @@ Return ONLY the email with Subject: on first line."""
         ),
     )
 
-    violations = _validate_email(email, primary_content)
+    used_fallback = False
+    if not email:
+        trace.append({"step": "email", "status": "running", "msg": "Model returned an empty draft after retries, using fallback template"})
+        email = _fallback_email(first_name, company, primary_content, sender_name)
+        used_fallback = True
+
+    violations = [] if used_fallback else _validate_email(email, primary_content)
 
     if violations:
         trace.append({"step": "email", "status": "running", "msg": f"Draft violated rules, retrying: {violations}"})
@@ -304,7 +342,7 @@ in that source text — or cut the sentence entirely if no true detail supports 
 anchored on ONE primary signal only. Keep the same length constraint and personalization.
 Return ONLY the corrected email with Subject: on first line."""
 
-        email = chat(
+        corrected = _chat_nonempty(
             messages=[{"role": "user", "content": retry_prompt}],
             system=(
                 "You are an expert B2B sales copywriter known for cutting every generic sentence. "
@@ -312,9 +350,12 @@ Return ONLY the corrected email with Subject: on first line."""
                 "or event that isn't present in the source material given to you."
             ),
         )
+        if corrected:
+            email = corrected
 
     state["email_draft"] = email
-    trace.append({"step": "email", "status": "done", "msg": "Personalized email drafted"})
+    done_msg = "Email drafted (fallback template)" if used_fallback else "Personalized email drafted"
+    trace.append({"step": "email", "status": "done", "msg": done_msg})
     state["trace"] = trace
     return state
 
