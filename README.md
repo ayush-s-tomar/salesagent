@@ -1,29 +1,28 @@
-# SalesAgent — Autonomous B2B Sales AI
+# SalesAgent — Autonomous B2B Sales Agent
 
 ![Python](https://img.shields.io/badge/python-3.11-blue) ![License](https://img.shields.io/badge/license-MIT-green) ![FastAPI](https://img.shields.io/badge/FastAPI-backend-teal) ![React](https://img.shields.io/badge/React-frontend-61dafb) ![Status](https://img.shields.io/badge/status-live-brightgreen) ![LangGraph](https://img.shields.io/badge/LangGraph-agent-1C3C3C)
 
-An AI agent that researches a lead, scores them, and writes a personalized cold email — in under a minute, from just a LinkedIn URL.
+An AI agent that takes a LinkedIn URL, researches the lead and their company, scores the lead, and drafts a personalized cold email in about a minute.
 
-🔗 **[Live Demo](https://salesagent-theta.vercel.app)**  |  💻 [GitHub](https://github.com/ayush-s-tomar/salesagent)  |  👤 [LinkedIn](https://www.linkedin.com/in/ayushsinghtomar/)
+**[Live Demo](https://salesagent-theta.vercel.app)** · [GitHub](https://github.com/ayush-s-tomar/salesagent) · [LinkedIn](https://www.linkedin.com/in/ayushsinghtomar/)
 
-> **Note:** The backend runs on Render's free tier, which spins down after inactivity. The first request after a period of idle time can take 30–60s to wake up — the UI shows live elapsed time and explains this while it happens, so it's clear the agent is working, not stuck.
+> **Note:** the backend runs on Render's free tier, which spins down when idle. The first request after a quiet period can take 30–60s to wake up. The UI shows live elapsed time and explains the wait.
 
 **TL;DR**
-- 🔍 **Real tool-calling agent** (LangGraph) — researches, scores, and drafts an email autonomously, not a hardcoded pipeline
-- ✅ **Grounded, not hallucinated** — every fact in the output is checked against the source it came from before being trusted
-- 🚀 **Live, working demo** — paste any public LinkedIn URL and watch it run end-to-end in the browser
+- **Tool-calling agent (LangGraph).** The LLM decides which research tools to call; the pipeline around it is a fixed four-step graph.
+- **Guardrails on the output.** Drafts are checked for placeholders, filler phrases, length and invented dates, and get one automatic rewrite if they fail.
+- **Fails visibly.** Empty model output is retried, then replaced by a plain fallback template; missing research data no longer crashes the run.
+- **Live demo.** Paste a public LinkedIn URL and watch each step stream into the browser.
 
-**Jump to:** [What it does](#what-it-does) · [What makes this agentic](#what-makes-this-agentic) · [Tech stack](#tech-stack) · [Run locally](#run-locally) · [Known limitations](#known-limitations) · [Roadmap](#roadmap)
+**Jump to:** [What it does](#what-it-does) · [What makes this agentic](#what-makes-this-agentic) · [Reliability](#reliability-notes) · [Tech stack](#tech-stack) · [Run locally](#run-locally) · [Known limitations](#known-limitations) · [Roadmap](#roadmap)
 
-![SalesAgent — live agent trace: research, score, draft, save, end to end](docs/demo.gif)
+![SalesAgent live agent trace: research, score, draft, save](docs/demo.gif)
 
 <details>
-<summary><b>📷 Screenshot + 🎥 full video walkthrough</b></summary>
+<summary><b>Screenshot and full video walkthrough</b></summary>
 <br/>
 
-![SalesAgent — one URL in, a scored, personalized lead out](docs/demo-screenshot.png)
-
-**One URL in. A scored, personalized lead out.**
+![SalesAgent: one URL in, a scored, personalized lead out](docs/demo-screenshot.png)
 
 <br/>
 
@@ -35,108 +34,73 @@ https://github.com/user-attachments/assets/a5b6394c-325b-4049-8a22-a891fb489f08
 
 ## Why I Built This
 
-Manual B2B lead research takes 1–2 hours per lead: checking LinkedIn, Googling company news, reading job postings to infer pain points, then writing a personalized email from scratch. It felt like exactly the kind of multi-step, tool-using task an LLM agent should own end-to-end, not just assist with — so I built one that does the whole loop autonomously: research → score → draft → save → remember, compressing that hour-plus of manual work to under a minute.
-
-This is not a CRM with AI bolted on. It's an AI agent that *is* the workflow.
+Manual B2B lead research is slow: check LinkedIn, search for company news, read job postings to infer priorities, then write an email from scratch. It is a multi-step, tool-using task that suits an LLM agent, so I built one that runs the whole loop: research, score, draft, save.
 
 ## What It Does
 
-Paste a LinkedIn URL. The LangGraph agent autonomously runs a 5-step pipeline:
+Paste a LinkedIn URL. A LangGraph workflow runs four steps and streams progress to the UI:
 
 | Step | What happens |
 |---|---|
-| 🔍 Research | Calls tools to search company news, analyze job postings for pain points, find tech stack |
-| 📊 Score | Random Forest ML model scores the lead 0–100 based on profile & company signals |
-| ✍️ Draft | Writes a hyper-personalized cold email referencing real company events & hiring signals |
-| 💾 Save | Adds enriched lead + deal to CRM pipeline with auto-scheduled follow-up |
-| 🧠 Remember | Stores full interaction history for future agent recall |
+| Research | The LLM calls tools to scrape the profile, search company news, analyze job postings and find the tech stack |
+| Score | A Random Forest model scores the lead 0–100 from profile and company signals |
+| Draft | Writes a cold email anchored on one real signal (news, then hiring, then tech stack) |
+| Save | Stores the lead, deal and email in the CRM pipeline, with an interaction log and a follow-up date 3 days out |
 
 ```
-LinkedIn URL → [Research] → [Score] → [Draft Email] → [Pipeline]
-                   ↑                                        |
-                   └──────── Long-term memory (SQLite) ─────┘
+LinkedIn URL -> [Research] -> [Score] -> [Draft Email] -> [Save to Pipeline]
+                                                              |
+                                      SQLite: leads, deals, interaction history
 ```
 
-The scorer is a Random Forest trained on 6 features (`has_company`, `has_title`, `skills_count`, `has_summary`, `has_news`, `has_jobs`) — weighted so active news coverage and open job postings count most (30% + 25% combined), since those best signal a company that's actively growing right now. It's trained on synthetic data with hand-set weights rather than real historical deal outcomes — a real production version would retrain this on actual won/lost CRM data. See `ml/scorer.py::train_and_save`.
+**Scoring.** The scorer is a Random Forest on six features (`has_company`, `has_title`, `skills_count`, `has_summary`, `has_news`, `has_jobs`), weighted so recent news and open job postings count most. It is trained on synthetic data with hand-set weights, not real deal outcomes, so scores are a directional signal only. See `ml/scorer.py::train_and_save`.
 
-## Demo Output
+## What Makes This Agentic
 
-**Input:** `https://www.linkedin.com/in/satya-nadella`
+**Tool calling.** The LLM receives four tool schemas and decides per step whether and how to call each one. See `agent/llm.py::run_with_tools`.
 
-**Agent trace (live):**
+**One signal per email.** Instead of stitching together unrelated facts, the drafter picks a single primary signal (news, then hiring, then tech stack) and builds the whole email around it. See `agent/graph.py::_pick_primary_signal`.
 
-```
-🔍 Researching lead from LinkedIn...           ✅ DONE  →  Found: Satya Nadella at Microsoft
-📊 Scoring lead with ML model...               ✅ DONE  →  94/100
-✍️ Drafting personalized cold email...         ✅ DONE
-💾 Saving to CRM pipeline...                   ✅ DONE  →  Follow-up: auto-scheduled
-```
+**Grounded profile extraction.** Without a paid LinkedIn API key, profile data is extracted from live search results by an LLM and checked against the source text. A field that cannot be traced back to what the search returned (such as a company name) is dropped rather than guessed. See `agent/tools.py::_search_based_profile`.
 
-**Generated email (real output):**
+**Self-correcting drafts.** Each draft is validated against hard rules: no placeholders, no generic filler phrases, a word limit, and no month-and-day dates that are absent from the research text. A failing draft is rewritten once with the violations listed. See `agent/graph.py::node_email`.
 
-<!-- TODO: the sample email below states "cutting manual build-up time by 40% in internal tests" —
-a specific statistic that doesn't trace to any source the agent retrieved, which cuts against the
-"grounded, not hallucinated" claim in the TL;DR. Before publishing, either confirm that figure comes
-from something real, or regenerate the sample (ideally on a fictional/anonymized lead) and paste the
-new real output here. Don't hand-edit "real output." -->
+**Persistent memory.** Leads, deals and interactions are stored in SQLite so a lead can be revisited with its history.
 
-```
-Subject: August 13, 2026 — Senior/Principal Product Systems Engineer posting
+**Live SSE trace.** Every node streams a Server-Sent Event to the UI, so the user sees what the agent is doing as it runs.
 
-Satya, the August 13 2026 posting for a Senior/Principal Product Systems
-Engineer in Cambridge cites AI, systems and networking research as core
-responsibilities. Our release-planner analytics platform pulls the Microsoft
-release planner tool data for Oct 2025–Mar 2026 and auto-generates
-engineer-specific feature views, cutting manual build-up time by 40% in
-internal tests...
-```
+## Reliability Notes
 
-The agent found real, live company data — an active engineering job posting, its specific responsibilities and location — and synthesized it into a fact-first, targeted email tied to a concrete hiring signal. No templates. No placeholders.
+Problems found while testing, and how they are handled:
+
+- **Blank emails from a reasoning model.** The model (`gpt-oss-120b`) spends part of its token budget on hidden reasoning. With a small `max_tokens`, it could use all of it and return an empty email with no error. Fix: reasoning effort set to low, a larger token budget, up to three retries on empty output, and a short fallback template if the model still returns nothing (the trace labels it "fallback template").
+- **Invented specifics.** An early draft cited a dated policy that appeared nowhere in the research. The validator now flags any month-and-day date in the email that is not in the source text and triggers the rewrite pass.
+- **Missing research data.** Profiles with no news, jobs or tech results used to crash the run on a `None` value. These are now treated as empty and the email falls back to the best available signal.
+- **Rate limits.** Groq per-minute (TPM) limits are retried using the wait time Groq reports. Daily-quota (TPD) errors fail fast with a clear message instead of tying up the single Render worker.
 
 ## Tech Stack
 
 | Layer | Technology |
 |---|---|
-| Agent framework | LangGraph (StateGraph + tool-calling loop) |
+| Agent framework | LangGraph (StateGraph with a tool-calling loop) |
 | LLM | Groq API (`openai/gpt-oss-120b`) |
 | Web intelligence | Tavily Search API |
-| LinkedIn enrichment | Proxycurl API (optional) → Tavily search + LLM extraction fallback |
+| LinkedIn enrichment | Proxycurl API (optional), falling back to Tavily search plus LLM extraction |
 | ML lead scoring | scikit-learn (Random Forest) |
-| Backend | FastAPI + SQLite, containerized (Docker) |
-| Frontend | React + Tailwind |
-| Backend deploy | Render (Docker) |
-| Frontend deploy | Vercel |
-
-## What Makes This Agentic
-
-### Real tool-calling
-The LLM receives 4 tool schemas and decides per-step whether and how to call each one. Not a hardcoded pipeline. See `agent/llm.py::run_with_tools`.
-
-### Multi-signal reasoning
-The agent synthesizes company news + job postings + tech stack before writing a single word. Each source informs the output differently.
-
-### Grounded extraction
-When no paid LinkedIn API key is available, profile data is extracted from live search results by an LLM, then cross-checked against the source text before being trusted. If a field (like company name) can't be traced back to something the search actually returned, it's dropped rather than guessed — see `agent/tools.py::_search_based_profile`.
-
-### Self-correcting email drafts
-Generated emails are validated against hard rules (no placeholders, no generic filler phrases, must open with a specific fact) before being shown. A draft that fails gets rewritten automatically. See `agent/graph.py::node_email`.
-
-### Persistent deal memory
-Every interaction is stored in SQLite. Revisit a lead weeks later and the agent has full context: tone used, last touchpoint, company changes.
-
-### Live SSE trace
-Every node streams a Server-Sent Event to the UI in real time, showing exactly what the agent is doing step by step, with elapsed time visible throughout.
+| Backend | FastAPI, SQLite, Docker |
+| Frontend | React, Tailwind |
+| Deploy | Render (backend, Docker), Vercel (frontend) |
 
 ## Project Structure
 
 ```
 salesagent/
 ├── backend/
-│   ├── main.py              # FastAPI app — REST + SSE streaming
+│   ├── main.py              # FastAPI app: REST + SSE streaming
 │   ├── agent/
 │   │   ├── state.py         # AgentState TypedDict schema
-│   │   ├── graph.py         # LangGraph StateGraph (5 nodes)
-│   │   ├── llm.py           # LLM wrapper + agentic tool-calling loop
+│   │   ├── graph.py         # LangGraph StateGraph (4 nodes) + email validation
+│   │   ├── llm.py           # LLM wrapper, tool-calling loop, rate-limit handling
 │   │   └── tools.py         # 4 research tools + JSON schemas
 │   ├── memory/
 │   │   └── store.py         # SQLite (leads, deals, interactions)
@@ -151,20 +115,15 @@ salesagent/
 ├── frontend/
 │   └── src/
 │       ├── pages/
-│       │   ├── AgentPage.js     # Live agent UI + SSE trace + elapsed timer
+│       │   ├── AgentPage.js     # Live agent UI, SSE trace, elapsed timer
 │       │   ├── PipelinePage.js  # Kanban deal board
-│       │   └── LeadsPage.js     # Lead table + detail view
+│       │   └── LeadsPage.js     # Lead table and detail view
 │       └── components/
 │           └── Sidebar.js
-├── docs/
-│   ├── demo-screenshot.png
-│   ├── demo.gif
-│   └── demo.mp4
-├── .github/
-│   └── workflows/
-│       └── ci.yml           # Runs smoke tests on every push/PR
-├── LICENSE
+├── docs/                    # Demo GIF, screenshot, video
+├── .github/workflows/ci.yml # Smoke tests on every push/PR
 ├── render.yaml
+├── LICENSE
 └── README.md
 ```
 
@@ -183,65 +142,66 @@ pip install -r requirements.txt
 
 # 3. API keys
 cp .env.example .env
-# Add GROQ_API_KEY and TAVILY_API_KEY to .env
+# Add GROQ_API_KEY and TAVILY_API_KEY (optionally SENDER_NAME) to .env
 
 # 4. Start backend
 uvicorn main:app --reload
-# → http://localhost:8000/docs
+# -> http://localhost:8000/docs
 
 # 5. Frontend (new terminal)
 cd ../frontend
 npm install
 cp .env.example .env          # REACT_APP_API_URL=http://localhost:8000
 npm start
-# → http://localhost:3000
+# -> http://localhost:3000
 ```
 
 **Free API keys (no credit card required):**
-
-- Groq → https://console.groq.com/keys
-- Tavily → https://app.tavily.com
-- Proxycurl → https://nubela.co/proxycurl (optional, $0.01/profile — fallback works without it)
+- Groq: https://console.groq.com/keys
+- Tavily: https://app.tavily.com
+- Proxycurl (optional, about $0.01 per profile; the fallback works without it): https://nubela.co/proxycurl
 
 ## API Reference
 
 | Method | Endpoint | Description |
 |---|---|---|
-| POST | `/api/agent/run` | Run agent on LinkedIn URL (SSE stream) |
-| GET | `/api/health` | Health check / cold-start wake-up ping |
+| POST | `/api/agent/run` | Run the agent on a LinkedIn URL (SSE stream) |
+| GET | `/api/health` | Health check and cold-start wake-up ping |
 | GET | `/api/leads/` | List all leads |
-| GET | `/api/leads/{id}` | Lead detail + interaction history |
+| GET | `/api/leads/{id}` | Lead detail and interaction history |
 | GET | `/api/deals/` | All deals with pipeline stages |
-| PATCH | `/api/deals/{id}/stage` | Move deal to new stage |
-| POST | `/api/emails/regenerate` | Regenerate email with different tone |
+| PATCH | `/api/deals/{id}/stage` | Move a deal to a new stage |
+| POST | `/api/emails/regenerate` | Regenerate an email with a different tone |
 
 ```bash
-# Quick test (after running the backend locally — see "Run Locally" above)
+# Quick test (backend running locally)
 curl -X POST http://localhost:8000/api/agent/run \
   -H "Content-Type: application/json" \
-  -d '{"linkedin_url": "https://linkedin.com/in/satya-nadella"}'
+  -d '{"linkedin_url": "https://www.linkedin.com/in/your-profile"}'
 ```
 
 ## Known Limitations
 
-- **Free-tier hosting** — the backend runs on Render's free tier, which spins down after inactivity. Expect a 30–60s cold-start delay on the first request after idle time; the UI surfaces live elapsed time and an explanation during this wait rather than a silent spinner (verified in practice — a cold-start run completed in 55s with the timer counting throughout).
-- **LinkedIn profile scraping is best-effort.** Without a paid Proxycurl key, the agent falls back to a Tavily search + LLM extraction. Extracted fields (name, company) are checked against the source search text before being trusted — if a field can't be grounded in what was actually found, it's left blank rather than guessed, since thin or newly-created profiles may not return enough indexed content for a confident match.
-- **Free-tier LLM rate limits (Groq)** mean heavy concurrent usage may briefly slow or queue email generation.
-- **SQLite for persistence** — fine for a portfolio/demo scale, but a production version would move to Postgres for concurrent writes and durability.
-- **No authentication layer** — this is a single-user demo; a real CRM deployment would need proper multi-tenant auth before handling real prospect data. (CORS is currently open to any origin to support this — see `backend/main.py`.)
-- **The lead scorer is trained on synthetic data** — see [What It Does](#what-it-does); scores are a directional signal, not a validated prediction of deal outcomes.
+- **Free-tier hosting.** Expect a 30–60s cold start after idle time; the UI shows elapsed time during the wait.
+- **Profile scraping is best-effort.** Without a paid Proxycurl key, the agent falls back to search plus LLM extraction. Thin or new profiles may return little, and unverifiable fields are left blank.
+- **Email checks are heuristic.** The validator catches banned phrases, length, placeholders and invented month-and-day dates. It cannot verify other kinds of claims (numbers, product names, policies), so review drafts before sending.
+- **Fallback emails are generic.** When the model returns nothing or research data is missing, the draft is a short template built from whatever real text exists.
+- **Synthetic scorer.** Lead scores come from a model trained on synthetic data and are not validated against deal outcomes.
+- **Groq rate limits.** Heavy concurrent use can slow or queue email generation, and the free daily quota can run out.
+- **SQLite and no auth.** Fine at demo scale. A production version would use Postgres and multi-tenant authentication. CORS is currently open to any origin (see `backend/main.py`).
 
 ## Roadmap
 
-- [ ] **Retrain the scorer on real outcomes** — swap the synthetic hand-weighted training data for actual won/lost deal history once there's enough volume, so the model learns real signal instead of my guessed weights
-- [ ] **Wire up `evals/judge.py` in CI** — the LLM-as-judge scorer already exists locally; next step is running it automatically on every PR so email-quality regressions get caught before merge, not after
-- [ ] Postgres migration — move off SQLite once this needs concurrent writes from more than one user
-- [ ] Gmail integration — send drafted emails directly from the CRM instead of copy-paste
-- [ ] Skip cold starts entirely — move the backend to a tier that stays warm, or add a scheduled keep-alive ping, once this needs to feel instant for a live audience
+- [ ] Retrain the scorer on real won/lost deal outcomes instead of hand-set synthetic weights
+- [ ] Run the LLM-as-judge in `evals/judge.py` in CI so email-quality regressions are caught before merge
+- [ ] Extend the grounding check beyond dates to numbers and named entities
+- [ ] Migrate from SQLite to Postgres for concurrent writes
+- [ ] Send drafted emails directly through Gmail
+- [ ] Add a keep-alive ping or an always-on tier to remove cold starts
 
 ## Contributing
 
-Contributions, issues, and feature requests are welcome! Feel free to check the [issues page](https://github.com/ayush-s-tomar/salesagent/issues).
+Issues and feature requests are welcome on the [issues page](https://github.com/ayush-s-tomar/salesagent/issues).
 
 1. Fork the project
 2. Create your feature branch (`git checkout -b feature/amazing-feature`)
@@ -257,4 +217,4 @@ Distributed under the MIT License. See `LICENSE` for more information.
 
 **Ayush Singh Tomar** — [GitHub](https://github.com/ayush-s-tomar) · [LinkedIn](https://www.linkedin.com/in/ayushsinghtomar) · [Portfolio](https://ayush-s-tomar.vercel.app)
 
-Part of my AI developer portfolio — agents that do real, autonomous work, not chatbots with a prompt. See also: [AgentLoop](https://github.com/ayush-s-tomar/agentloop), a multi-step research agent with tool-use and long-term memory.
+*Part of my AI developer portfolio. See also: [AgentLoop](https://github.com/ayush-s-tomar/agentloop), a multi-step research agent with tool use and long-term memory.*
