@@ -59,6 +59,7 @@ Gather as much relevant sales intelligence as possible."""
     name = profile.get("name", "")
     if not name or " " not in name:
         profile["name"] = _parse_name_from_url(url)
+        profile["name_from_url"] = True
 
     if not profile.get("company") or profile.get("company") == "Unknown Company":
         profile["company"] = ""
@@ -66,10 +67,16 @@ Gather as much relevant sales intelligence as possible."""
     state["profile"] = profile
     display_name = profile.get("name", "Lead")
     display_company = profile.get("company") or "their company"
+    if profile.get("name_from_url"):
+        found_msg = "Profile found (limited public data)"
+    elif profile.get("company"):
+        found_msg = f"Found: {display_name} at {display_company}"
+    else:
+        found_msg = f"Found: {display_name}"
     trace.append({
         "step": "research",
         "status": "done",
-        "msg": f"Found: {display_name} at {display_company}"
+        "msg": found_msg
     })
     state["trace"] = trace
     return state
@@ -255,7 +262,7 @@ def node_email(state: AgentState) -> AgentState:
 
     profile = state.get("profile", {})
     name = profile.get("name", "there")
-    first_name = name.split()[0] if name else "there"
+    first_name = "there" if profile.get("name_from_url") else (name.split()[0] if name else "there")
     company = profile.get("company", "") or ""
     title = profile.get("title", "")
     news = (state.get("company_news") or "")[:500]

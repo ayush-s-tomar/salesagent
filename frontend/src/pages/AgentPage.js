@@ -132,6 +132,18 @@ export default function AgentPage() {
         </button>
       </div>
 
+      {!running && (
+        <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 16 }}>
+          No URL handy?{' '}
+          <button
+            onClick={() => setUrl('https://www.linkedin.com/in/satyanadella/')}
+            style={{ background: 'none', border: 'none', padding: 0, color: 'var(--accent2)', cursor: 'pointer', fontSize: 12, textDecoration: 'underline' }}
+          >
+            Try an example profile
+          </button>
+        </div>
+      )}
+
       {/* Cold-start hint, only shown once the wait is long enough to matter */}
       {running && elapsed >= 8 && elapsed < 70 && (
         <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 20 }}>
@@ -210,7 +222,7 @@ export default function AgentPage() {
           <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, padding: 20 }}>
             <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 12 }}>LEAD PROFILE</div>
             <div style={{ fontSize: 18, fontWeight: 700 }}>{result.profile?.name || 'Lead'}</div>
-            <div style={{ color: 'var(--muted)', marginBottom: 12 }}>{result.profile?.title} · {result.profile?.company}</div>
+            <div style={{ color: 'var(--muted)', marginBottom: 12 }}>{[result.profile?.title, result.profile?.company].filter(Boolean).join(' · ')}</div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
               <div style={{
                 fontSize: 28, fontWeight: 700,
