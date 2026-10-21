@@ -167,6 +167,22 @@ def _validate_email(email: str, primary_content: str = "") -> list:
                     "— likely fabricated, not grounded in the primary signal."
                 )
 
+    # A refusal is not an email.
+    low = email.lower()
+    for marker in ("i'm unable", "i am unable", "i cannot", "i can't", "no factual information", "unable to craft", "unable to write"):
+        if marker in low:
+            violations.append("Output is a refusal, not an email.")
+            break
+
+    # Numbers in the email must appear in the source text (15 is allowed for the call length).
+    if primary_content:
+        seen = set()
+        for raw in re.findall(r"\d[\d,.]*", email):
+            num = raw.rstrip(".,")
+            if num and num != "15" and num not in primary_content and num not in seen:
+                seen.add(num)
+                violations.append(f"Contains a number not found in the source research: '{num}'")
+
     return violations
 
 
@@ -300,7 +316,7 @@ PRIMARY signal]..."
 
 Return ONLY the email with Subject: on first line."""
 
-    email = _chat_nonempty(
+    email = "" if not primary_content.strip() else _chat_nonempty(
         messages=[{"role": "user", "content": base_prompt}],
         system=(
             "You are an expert B2B sales copywriter known for cutting every generic sentence "
@@ -314,11 +330,12 @@ Return ONLY the email with Subject: on first line."""
 
     used_fallback = False
     if not email:
-        trace.append({"step": "email", "status": "running", "msg": "Model returned an empty draft after retries, using fallback template"})
+        trace.append({"step": "email", "status": "running", "msg": "No usable draft or no research text, using fallback template"})
         email = _fallback_email(first_name, company, primary_content, sender_name)
         used_fallback = True
 
-    violations = [] if used_fallback else _validate_email(email, primary_content)
+    source_text = primary_content + " " + supporting_note
+    violations = [] if used_fallback else _validate_email(email, source_text)
 
     if violations:
         trace.append({"step": "email", "status": "running", "msg": f"Draft violated rules, retrying: {violations}"})
@@ -352,6 +369,9 @@ Return ONLY the corrected email with Subject: on first line."""
         )
         if corrected:
             email = corrected
+        if _validate_email(email, source_text):
+            email = _fallback_email(first_name, company, primary_content, sender_name)
+            used_fallback = True
 
     state["email_draft"] = email
     done_msg = "Email drafted (fallback template)" if used_fallback else "Personalized email drafted"

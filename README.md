@@ -192,7 +192,7 @@ curl -X POST http://localhost:8000/api/agent/run \
 
 - **Free-tier hosting.** Expect a 30–60s cold start after idle time; the UI shows elapsed time during the wait.
 - **Profile scraping is best-effort.** Without a paid Proxycurl key, the agent falls back to search plus LLM extraction. Thin or new profiles may return little, and unverifiable fields are left blank.
-- **Email checks are heuristic.** The validator catches banned phrases, length, placeholders and invented month-and-day dates. It cannot verify other kinds of claims (numbers, product names, policies), so review drafts before sending.
+- **Email checks are heuristic.** The validator catches banned phrases, length, placeholders, invented month-and-day dates and numbers that are absent from the research text. It cannot verify other kinds of claims (product names, policies), so review drafts before sending.
 - **Fallback emails are generic.** When the model returns nothing or research data is missing, the draft is a short template built from whatever real text exists.
 - **Synthetic scorer.** Lead scores come from a model trained on synthetic data and are not validated against deal outcomes.
 - **Groq rate limits.** Heavy concurrent use can slow or queue email generation, and the free daily quota can run out.
@@ -202,7 +202,7 @@ curl -X POST http://localhost:8000/api/agent/run \
 
 - [ ] Retrain the scorer on real won/lost deal outcomes instead of hand-set synthetic weights
 - [ ] Run the LLM-as-judge in `evals/judge.py` in CI so email-quality regressions are caught before merge
-- [ ] Extend the grounding check beyond dates to numbers and named entities
+- [ ] Extend the grounding check beyond dates and numbers to named entities
 - [ ] Migrate from SQLite to Postgres for concurrent writes
 - [ ] Send drafted emails directly through Gmail
 - [ ] Add a keep-alive ping or an always-on tier to remove cold starts
