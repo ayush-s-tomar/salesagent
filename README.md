@@ -1,6 +1,6 @@
 # SalesAgent — Autonomous B2B Sales Agent
 
-![Python](https://img.shields.io/badge/python-3.11-blue) ![License](https://img.shields.io/badge/license-MIT-green) ![FastAPI](https://img.shields.io/badge/FastAPI-backend-teal) ![React](https://img.shields.io/badge/React-frontend-61dafb) ![Status](https://img.shields.io/badge/status-live-brightgreen) ![LangGraph](https://img.shields.io/badge/LangGraph-agent-1C3C3C)
+[![CI](https://github.com/ayush-s-tomar/salesagent/actions/workflows/ci.yml/badge.svg)](https://github.com/ayush-s-tomar/salesagent/actions/workflows/ci.yml) ![Python](https://img.shields.io/badge/python-3.11-blue) ![License](https://img.shields.io/badge/license-MIT-green) ![FastAPI](https://img.shields.io/badge/FastAPI-backend-teal) ![React](https://img.shields.io/badge/React-frontend-61dafb) ![Status](https://img.shields.io/badge/status-live-brightgreen) ![LangGraph](https://img.shields.io/badge/LangGraph-agent-1C3C3C)
 
 An AI agent that takes a LinkedIn URL, researches the lead and their company, scores the lead, and drafts a personalized cold email in about a minute.
 
@@ -32,8 +32,15 @@ https://github.com/user-attachments/assets/a5b6394c-325b-4049-8a22-a891fb489f08
 
 ---
 
-## Why I Built This
+## Try It in 60 Seconds
 
+1. Open the [live demo](https://salesagent-theta.vercel.app). If the first request is slow, the free-tier backend is waking up (30-60s).
+2. Paste any public LinkedIn profile URL and start the run.
+3. Watch research, score, draft and save stream in. Then open the Leads and Pipeline pages to see the saved lead and deal.
+
+If the Groq daily quota is used up, the UI shows a clear error. Try again after it resets.
+
+## Why I Built This
 Manual B2B lead research is slow: check LinkedIn, search for company news, read job postings to infer priorities, then write an email from scratch. It is a multi-step, tool-using task that suits an LLM agent, so I built one that runs the whole loop: research, score, draft, save.
 
 ## What It Does
@@ -201,13 +208,7 @@ curl -X POST http://localhost:8000/api/agent/run \
 
 ## Contributing
 
-Issues and feature requests are welcome on the [issues page](https://github.com/ayush-s-tomar/salesagent/issues).
-
-1. Fork the project
-2. Create your feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add some amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
+This is a portfolio project, but bug reports and suggestions are welcome on the [issues page](https://github.com/ayush-s-tomar/salesagent/issues).
 
 ## License
 
