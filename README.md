@@ -4,17 +4,17 @@
 
 An AI agent that takes a LinkedIn URL, researches the lead and their company, scores the lead, and drafts a personalized cold email in about a minute.
 
-**[Live Demo](https://salesagent-theta.vercel.app)** · [GitHub](https://github.com/ayush-s-tomar/salesagent) · [LinkedIn](https://www.linkedin.com/in/ayushsinghtomar/)
+**[Live Demo](https://salesagent-theta.vercel.app)** · [Portfolio](https://ayush-s-tomar.vercel.app) · [LinkedIn](https://www.linkedin.com/in/ayushsinghtomar/)
 
 > **Note:** the backend runs on Render's free tier, which spins down when idle. The first request after a quiet period can take 30–60s to wake up. The UI shows live elapsed time and explains the wait.
 
 **TL;DR**
 - **Tool-calling agent (LangGraph).** The LLM decides which research tools to call; the pipeline around it is a fixed four-step graph.
-- **Guardrails on the output.** Drafts are checked for placeholders, filler phrases, length and invented dates, and get one automatic rewrite if they fail.
+- **Guardrails on the output.** Drafts are checked for placeholders, filler phrases, length, invented dates and numbers, and get one automatic rewrite if they fail.
 - **Fails visibly.** Empty model output is retried, then replaced by a plain fallback template; missing research data no longer crashes the run.
 - **Live demo.** Paste a public LinkedIn URL and watch each step stream into the browser.
 
-**Jump to:** [What it does](#what-it-does) · [What makes this agentic](#what-makes-this-agentic) · [Reliability](#reliability-notes) · [Tech stack](#tech-stack) · [Run locally](#run-locally) · [Known limitations](#known-limitations) · [Roadmap](#roadmap)
+**Jump to:** [Try it](#try-it-in-60-seconds) · [What it does](#what-it-does) · [What makes this agentic](#what-makes-this-agentic) · [Reliability](#reliability-notes) · [Tech stack](#tech-stack) · [Run locally](#run-locally) · [Known limitations](#known-limitations) · [Roadmap](#roadmap)
 
 ![SalesAgent live agent trace: research, score, draft, save](docs/demo.gif)
 
@@ -71,7 +71,7 @@ LinkedIn URL -> [Research] -> [Score] -> [Draft Email] -> [Save to Pipeline]
 
 **Grounded profile extraction.** Without a paid LinkedIn API key, profile data is extracted from live search results by an LLM and checked against the source text. A field that cannot be traced back to what the search returned (such as a company name) is dropped rather than guessed. See `agent/tools.py::_search_based_profile`.
 
-**Self-correcting drafts.** Each draft is validated against hard rules: no placeholders, no generic filler phrases, a word limit, and no month-and-day dates that are absent from the research text. A failing draft is rewritten once with the violations listed. See `agent/graph.py::node_email`.
+**Self-correcting drafts.** Each draft is validated against hard rules: no placeholders, no generic filler phrases, a word limit, and no month-and-day dates or numbers that are absent from the research text. A failing draft is rewritten once with the violations listed. See `agent/graph.py::node_email`.
 
 **Persistent memory.** Leads, deals and interactions are stored in SQLite so a lead can be revisited with its history.
 
@@ -114,8 +114,11 @@ salesagent/
 │   │   └── store.py         # SQLite (leads, deals, interactions)
 │   ├── ml/
 │   │   └── scorer.py        # Random Forest lead scorer
+│   ├── evals/              # golden set, LLM judge, eval runner
+│   ├── mcp_server/         # MCP server
 │   ├── tests/
-│   │   └── test_smoke.py    # Import/build/output-range smoke tests (CI)
+│   │   ├── test_smoke.py    # Import/build/output-range smoke tests (CI)
+│   │   └── test_validator.py    # Guardrail unit tests
 │   └── api/
 │       ├── leads.py         # CRUD endpoints
 │       ├── deals.py         # Pipeline stage management
@@ -129,7 +132,7 @@ salesagent/
 │       └── components/
 │           └── Sidebar.js
 ├── docs/                    # Demo GIF, screenshot, video
-├── .github/workflows/ci.yml # Smoke tests on every push/PR
+├── .github/workflows/ci.yml # Smoke and unit tests on every push/PR
 ├── render.yaml
 ├── LICENSE
 └── README.md

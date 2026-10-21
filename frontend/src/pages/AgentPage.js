@@ -56,6 +56,16 @@ export default function AgentPage() {
         body: JSON.stringify({ linkedin_url: url }),
       });
 
+      if (!resp.ok) {
+        let msg = `Request failed (${resp.status}).`;
+        try {
+          const j = await resp.json();
+          if (j && j.detail) msg = j.detail;
+        } catch (_) {}
+        setError(msg);
+        return;
+      }
+
       const reader = resp.body.getReader();
       const decoder = new TextDecoder();
 
