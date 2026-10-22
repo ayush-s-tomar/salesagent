@@ -269,6 +269,10 @@ def node_email(state: AgentState) -> AgentState:
     jobs = (state.get("job_postings") or "")[:400]
     tech = (state.get("tech_stack") or "")[:300]
     sender_name = os.getenv("SENDER_NAME", "the sender")
+    product_desc = os.getenv(
+        "SENDER_PRODUCT",
+        "software that helps sales teams turn research signals into prioritized, personalized outreach",
+    )
 
     if company:
         company_line = f"at {company}"
@@ -309,7 +313,7 @@ HARD RULES:
   and no sentence should introduce a "fact" that isn't traceable back to the intelligence given.
 - Subject line: reference the SAME specific fact used in the opening line, not a generic theme,
   and not an invented one.
-- Body: connect the primary signal to what the sender's product does, in one sentence — not a
+- Body: connect the primary signal to this sender's product, described ONLY as: {product_desc}. Never describe the product any other way, in one sentence — not a
   vague "simplify your operations" claim.
 - CTA: one specific, low-friction ask (e.g. a 15-min call Tuesday), not "let's discuss" or "let's chat."
 - Length: STRICTLY under {MAX_EMAIL_WORDS} words.
@@ -320,6 +324,8 @@ of its content; your opening fact must come only from the PRIMARY signal given t
 "Subject: [the single specific fact from the PRIMARY signal, stated plainly]
 [Name], [that same fact expanded into one sentence, using only wording/details present in the
 PRIMARY signal]..."
+
+Separate paragraphs with a blank line.
 
 Return ONLY the email with Subject: on first line."""
 

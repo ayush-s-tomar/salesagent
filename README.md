@@ -82,7 +82,7 @@ LinkedIn URL -> [Research] -> [Score] -> [Draft Email] -> [Save to Pipeline]
 Problems found while testing, and how they are handled:
 
 - **Blank emails from a reasoning model.** The model (`gpt-oss-120b`) spends part of its token budget on hidden reasoning. With a small `max_tokens`, it could use all of it and return an empty email with no error. Fix: reasoning effort set to low, a larger token budget, up to three retries on empty output, and a short fallback template if the model still returns nothing (the trace labels it "fallback template").
-- **Invented specifics.** An early draft cited a dated policy that appeared nowhere in the research. The validator now flags any month-and-day date in the email that is not in the source text and triggers the rewrite pass.
+- **Invented specifics.** An early draft cited a dated policy that appeared nowhere in the research. The validator now flags any month-and-day date or number in the email that is not in the source text and triggers the rewrite pass.
 - **Missing research data.** Profiles with no news, jobs or tech results used to crash the run on a `None` value. These are now treated as empty and the email falls back to the best available signal.
 - **Rate limits.** Groq per-minute (TPM) limits are retried using the wait time Groq reports. Daily-quota (TPD) errors fail fast with a clear message instead of tying up the single Render worker.
 
@@ -153,7 +153,7 @@ pip install -r requirements.txt
 
 # 3. API keys
 cp .env.example .env
-# Add GROQ_API_KEY and TAVILY_API_KEY (optionally SENDER_NAME) to .env
+# Add GROQ_API_KEY and TAVILY_API_KEY (optionally SENDER_NAME and SENDER_PRODUCT) to .env
 
 # 4. Start backend
 uvicorn main:app --reload
