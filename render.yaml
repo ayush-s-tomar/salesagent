@@ -5,6 +5,7 @@ services:
     rootDir: backend
     buildCommand: pip install -r requirements.txt && python -c "from ml.scorer import train_and_save; train_and_save()"
     startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /api/health
     envVars:
       - key: GROQ_API_KEY
         sync: false
@@ -16,6 +17,12 @@ services:
         value: openai/gpt-oss-120b
       - key: PYTHON_VERSION
         value: 3.11.0
+      - key: WEB_CONCURRENCY
+        value: "1"
+      - key: SENDER_NAME
+        sync: false
+      - key: SENDER_PRODUCT
+        sync: false
 
   - type: web
     name: salesagent-frontend

@@ -6,20 +6,53 @@ export default function LeadsPage() {
   const [leads, setLeads] = useState([]);
   const [selected, setSelected] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [regenTone, setRegenTone] = useState('professional');
+  const [regenLoading, setRegenLoading] = useState(false);
+  const [regenMsg, setRegenMsg] = useState('');
 
   useEffect(() => { fetchLeads(); }, []);
 
   async function fetchLeads() {
     try {
       const r = await fetch(`${API}/api/leads/`);
-      setLeads(await r.json());
+      const d = await r.json(); setLeads(Array.isArray(d) ? d : []);
     } catch (_) { setLeads([]); }
     finally { setLoading(false); }
   }
 
   async function fetchDetail(id) {
-    const r = await fetch(`${API}/api/leads/${id}`);
-    setSelected(await r.json());
+    setRegenMsg('');
+    try {
+      const r = await fetch(`${API}/api/leads/${id}`);
+      if (!r.ok) return;
+      setSelected(await r.json());
+    } catch (_) {}
+  }
+
+  async function regenerate() {
+    if (!selected || !selected.email_draft) return;
+    setRegenLoading(true); setRegenMsg('');
+    try {
+      const r = await fetch(`${API}/api/emails/regenerate`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          lead_name: selected.name || '',
+          company: selected.company || '',
+          title: selected.title || '',
+          context: selected.email_draft,
+          tone: regenTone,
+        }),
+      });
+      const data = await r.json().catch(() => ({}));
+      if (!r.ok) { setRegenMsg(data.detail || `Request failed (${r.status}).`); return; }
+      setSelected(prev => ({ ...prev, email_draft: data.email }));
+      setRegenMsg(data.note || 'Preview only. This rewrite is not saved.');
+    } catch (_) {
+      setRegenMsg('Could not reach the server.');
+    } finally {
+      setRegenLoading(false);
+    }
   }
 
   if (loading) return <div style={{ padding: 32, color: 'var(--muted)' }}>Loading leads...</div>;
@@ -82,7 +115,7 @@ export default function LeadsPage() {
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 16 }}>
               <div>
                 <div style={{ fontSize: 18, fontWeight: 700 }}>{selected.name}</div>
-                <div style={{ color: 'var(--muted)', fontSize: 13 }}>{selected.title} · {selected.company}</div>
+                <div style={{ color: 'var(--muted)', fontSize: 13 }}>{[selected.title, selected.company].filter(Boolean).join(' · ')}</div>
               </div>
               <button onClick={() => setSelected(null)} style={{ background: 'none', border: 'none', color: 'var(--muted)', cursor: 'pointer', fontSize: 18 }}>×</button>
             </div>
@@ -104,6 +137,26 @@ export default function LeadsPage() {
                 }}>
                   {selected.email_draft}
                 </pre>
+                <div style={{ display: 'flex', gap: 8, marginTop: 10, alignItems: 'center' }}>
+                  <select
+                    value={regenTone}
+                    onChange={e => setRegenTone(e.target.value)}
+                    style={{ fontSize: 12, padding: '5px 8px', background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 6, color: 'var(--text)' }}
+                  >
+                    <option value="professional">Professional</option>
+                    <option value="friendly">Friendly</option>
+                    <option value="concise">Concise</option>
+                    <option value="direct">Direct</option>
+                  </select>
+                  <button
+                    onClick={regenerate}
+                    disabled={regenLoading}
+                    style={{ fontSize: 12, padding: '5px 12px', background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 6, color: 'var(--text)', cursor: regenLoading ? 'not-allowed' : 'pointer' }}
+                  >
+                    {regenLoading ? 'Rewriting...' : 'Rewrite in this tone'}
+                  </button>
+                </div>
+                {regenMsg && <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 6 }}>{regenMsg}</div>}
               </div>
             )}
 

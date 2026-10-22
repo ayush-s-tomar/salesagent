@@ -13,6 +13,7 @@ export default function AgentPage() {
   const [error, setError] = useState('');
   const [elapsed, setElapsed] = useState(0);
   const [backendWarm, setBackendWarm] = useState(false);
+  const [copied, setCopied] = useState(false);
   const timerRef = useRef(null);
 
   // FIX: Render's free-tier backend spins down after inactivity and takes
@@ -286,7 +287,7 @@ export default function AgentPage() {
               {result.email}
             </pre>
             <button
-              onClick={() => navigator.clipboard.writeText(result.email || '')}
+              onClick={() => { navigator.clipboard.writeText(result.email || ''); setCopied(true); setTimeout(() => setCopied(false), 2000); }}
               style={{
                 display: 'flex', alignItems: 'center', gap: 6,
                 marginTop: 12, padding: '6px 14px', background: 'var(--surface2)',
@@ -295,7 +296,7 @@ export default function AgentPage() {
               }}
             >
               <Copy size={13} />
-              Copy Email
+              {copied ? 'Copied' : 'Copy Email'}
             </button>
           </div>
         </div>

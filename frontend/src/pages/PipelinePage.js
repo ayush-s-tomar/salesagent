@@ -17,7 +17,7 @@ export default function PipelinePage() {
   async function fetchDeals() {
     try {
       const r = await fetch(`${API}/api/deals/`);
-      setDeals(await r.json());
+      const d = await r.json(); setDeals(Array.isArray(d) ? d : []);
     } catch (_) { setDeals([]); }
     finally { setLoading(false); }
   }
@@ -65,7 +65,7 @@ export default function PipelinePage() {
                   background: 'var(--surface2)', border: '1px solid var(--border)',
                   borderRadius: 8, padding: 12, marginBottom: 8,
                 }}>
-                  <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 4 }}>{deal.lead_name || deal.title}</div>
+                  <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 4 }}>{deal.lead_name || String(deal.title || '').replace(/\s+-\s*$/, '')}</div>
                   <div style={{ color: 'var(--muted)', fontSize: 11, marginBottom: 8 }}>{deal.company}</div>
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                     <div style={{
