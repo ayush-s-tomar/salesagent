@@ -114,14 +114,31 @@ def update_lead(lead_id: int, **fields) -> dict:
 
 
 def save_deal(data: dict) -> int:
+    """Create a deal for a lead, or refresh the existing one.
+
+    One deal per lead: re-running the agent on the same profile updates the
+    title and score but keeps the stage, so a deal that was moved down the
+    pipeline is not reset to 'Lead'.
+    """
     conn = get_conn()
     c = conn.cursor()
-    c.execute("""
-        INSERT INTO deals (lead_id, title, stage, score)
-        VALUES (:lead_id, :title, :stage, :score)
-    """, data)
+    existing = c.execute(
+        "SELECT id FROM deals WHERE lead_id=? ORDER BY id LIMIT 1",
+        (data.get("lead_id"),),
+    ).fetchone()
+    if existing:
+        deal_id = existing["id"]
+        c.execute(
+            "UPDATE deals SET title=?, score=?, updated_at=CURRENT_TIMESTAMP WHERE id=?",
+            (data.get("title"), data.get("score", 0), deal_id),
+        )
+    else:
+        c.execute("""
+            INSERT INTO deals (lead_id, title, stage, score)
+            VALUES (:lead_id, :title, :stage, :score)
+        """, data)
+        deal_id = c.lastrowid
     conn.commit()
-    deal_id = c.lastrowid
     conn.close()
     return deal_id
 
