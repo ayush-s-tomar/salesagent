@@ -245,7 +245,7 @@ def chat(messages: list, system: str = None) -> str:
         # budget mid-reasoning on the detailed node_email prompt and
         # returning an empty message.content with no error (the API call
         # still "succeeds"), which is why the email panel came back blank
-        # with no exception anywhere in the trace. Restored to 1500, which
+        # with no exception anywhere in the trace. Raised to 2500 (with reasoning_effort=low), which
         # is still far below run_with_tools' iteration cost and leaves
         # enough headroom for reasoning + a <150-word email.
         max_tokens=2500,

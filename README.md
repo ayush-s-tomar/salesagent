@@ -69,7 +69,7 @@ LinkedIn URL -> [Research] -> [Score] -> [Draft Email] -> [Save to Pipeline]
 
 **One signal per email.** Instead of stitching together unrelated facts, the drafter picks a single primary signal (news, then hiring, then tech stack) and builds the whole email around it. See `agent/graph.py::_pick_primary_signal`.
 
-**Grounded profile extraction.** Without a paid LinkedIn API key, profile data is extracted from live search results by an LLM and checked against the source text. A field that cannot be traced back to what the search returned (such as a company name) is dropped rather than guessed. See `agent/tools.py::_search_based_profile`.
+**Grounded profile extraction.** Without a paid LinkedIn API key, profile data is extracted from live search results by an LLM and checked against the source text. If the extracted name does not match the URL slug, the whole extraction is discarded, and a company that does not appear in the search text is dropped rather than guessed. Title, location and summary are not independently verified. See `agent/tools.py::_search_based_profile`.
 
 **Self-correcting drafts.** Each draft is validated against hard rules: no placeholders, no generic filler phrases, a word limit, and no month-and-day dates or numbers that are absent from the research text. A failing draft is rewritten once with the violations listed. See `agent/graph.py::node_email`.
 
@@ -194,7 +194,7 @@ curl -X POST http://localhost:8000/api/agent/run \
 ## Known Limitations
 
 - **Free-tier hosting.** Expect a 30–60s cold start after idle time; the UI shows elapsed time during the wait.
-- **Profile scraping is best-effort.** Without a paid Proxycurl key, the agent falls back to search plus LLM extraction. Thin or new profiles may return little, and unverifiable fields are left blank.
+- **Profile scraping is best-effort.** Without a paid Proxycurl key, the agent falls back to search plus LLM extraction. Thin or new profiles may return little, and a company name that cannot be found in the search text is left blank.
 - **Email checks are heuristic.** The validator catches banned phrases, length, placeholders, invented month-and-day dates and numbers that are absent from the research text. It cannot verify other kinds of claims (product names, policies), so review drafts before sending.
 - **Fallback emails are generic.** When the model returns nothing or research data is missing, the draft is a short template built from whatever real text exists.
 - **Synthetic scorer.** Lead scores come from a model trained on synthetic data and are not validated against deal outcomes.

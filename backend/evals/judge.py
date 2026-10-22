@@ -113,7 +113,8 @@ mentions_company and has_specific_hook."""
             {"role": "system", "content": JUDGE_SYSTEM},
             {"role": "user", "content": prompt},
         ],
-        max_tokens=600,
+        max_tokens=1500,
+        extra_body={"reasoning_effort": "low"},
         temperature=0,
     )
 
@@ -131,6 +132,12 @@ mentions_company and has_specific_hook."""
             "reasoning": f"JUDGE_PARSE_ERROR: raw output was: {raw[:300]}",
         }
 
+    if not isinstance(result, dict):
+        result = {}
+    for score_key in ("personalization_score", "correctness_score", "structure_score"):
+        if not isinstance(result.get(score_key), (int, float)):
+            result[score_key] = 0
+            result["judge_incomplete"] = True
     result.setdefault("criteria_results", {})
     result["criteria_results"]["under_word_limit"] = under_limit
     result["criteria_results"]["no_forbidden_placeholders"] = no_forbidden
