@@ -194,7 +194,8 @@ Return ONLY valid JSON, no markdown fences, no preamble, in this exact shape:
         resp = _groq().chat.completions.create(
             model=EXTRACT_MODEL,
             messages=[{"role": "user", "content": extraction_prompt}],
-            max_tokens=500,
+            max_tokens=1500,
+            extra_body={"reasoning_effort": "low"},
             temperature=0,
         )
         raw = resp.choices[0].message.content or "{}"

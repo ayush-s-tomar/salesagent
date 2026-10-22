@@ -64,6 +64,15 @@ Gather as much relevant sales intelligence as possible."""
     if not profile.get("company") or profile.get("company") == "Unknown Company":
         profile["company"] = ""
 
+    if not profile["company"]:
+        # Without a verified company, news/jobs/tech results cannot be tied to
+        # this person (the model may have guessed a company to search for).
+        state["company_news"] = None
+        state["job_postings"] = None
+        state["tech_stack"] = None
+        if profile.get("name") == _parse_name_from_url(url):
+            profile["name_from_url"] = True
+
     state["profile"] = profile
     display_name = profile.get("name", "Lead")
     display_company = profile.get("company") or "their company"
@@ -262,7 +271,11 @@ def node_email(state: AgentState) -> AgentState:
 
     profile = state.get("profile", {})
     name = profile.get("name", "there")
-    first_name = "there" if profile.get("name_from_url") else (name.split()[0] if name else "there")
+    if profile.get("name_from_url"):
+        name = "the recipient (name unknown: greet them with 'Hi there')"
+        first_name = "there"
+    else:
+        first_name = name.split()[0] if name else "there"
     company = profile.get("company", "") or ""
     title = profile.get("title", "")
     news = (state.get("company_news") or "")[:500]
