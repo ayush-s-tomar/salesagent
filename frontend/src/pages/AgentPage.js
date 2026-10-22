@@ -69,12 +69,15 @@ export default function AgentPage() {
 
       const reader = resp.body.getReader();
       const decoder = new TextDecoder();
+      let buffer = '';
 
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
-        const chunk = decoder.decode(value);
-        const lines = chunk.split('\n').filter(l => l.startsWith('data:'));
+        buffer += decoder.decode(value, { stream: true });
+        const parts = buffer.split('\n');
+        buffer = parts.pop();
+        const lines = parts.filter(l => l.startsWith('data:'));
         for (const line of lines) {
           const data = line.replace('data: ', '').trim();
           if (data === '[DONE]') { setRunning(false); break; }
@@ -275,14 +278,14 @@ export default function AgentPage() {
                 mid-sentence in a short visible window (only ~6 lines
                 visible before scroll), which looked broken/truncated in
                 screenshots since nothing signaled there was more below the
-                fold. Raised to 420 so a typical <150-word email (the hard
+                fold. Raised to 640 so a typical <150-word email (the hard
                 cap enforced in node_email/_validate_email) fits without
                 scrolling at all in the common case; overflow:auto is kept
                 as a safety net for the rare longer draft rather than as
                 the default viewing mode. */}
             <pre style={{
               fontFamily: 'var(--font)', fontSize: 12, lineHeight: 1.7,
-              color: 'var(--text)', whiteSpace: 'pre-wrap', maxHeight: 420, overflow: 'auto',
+              color: 'var(--text)', whiteSpace: 'pre-wrap', maxHeight: 640, overflow: 'auto',
             }}>
               {result.email}
             </pre>
