@@ -14,7 +14,7 @@ An AI agent that takes a LinkedIn URL, researches the lead and their company, sc
 - **Fails visibly.** Empty model output is retried, then replaced by a plain fallback template; missing research data no longer crashes the run.
 - **Live demo.** Paste a public LinkedIn URL and watch each step stream into the browser.
 
-**Jump to:** [Try it](#try-it-in-60-seconds) · [What it does](#what-it-does) · [What makes this agentic](#what-makes-this-agentic) · [Reliability](#reliability-notes) · [Tech stack](#tech-stack) · [Run locally](#run-locally) · [Known limitations](#known-limitations) · [Roadmap](#roadmap)
+**Jump to:** [Try it](#try-it-in-60-seconds) · [What it does](#what-it-does) · [What makes this agentic](#what-makes-this-agentic) · [Reliability](#reliability-notes) · [Evaluation](#evaluation) · [Tech stack](#tech-stack) · [Run locally](#run-locally) · [Known limitations](#known-limitations) · [Roadmap](#roadmap)
 
 ![SalesAgent live agent trace: research, score, draft, save](docs/demo.gif)
 
@@ -191,6 +191,22 @@ curl -X POST http://localhost:8000/api/agent/run \
   -d '{"linkedin_url": "https://www.linkedin.com/in/your-profile"}'
 ```
 
+## Evaluation
+
+`backend/evals/` holds a golden set of 3 profiles, a runner (`python -m evals.run_evals`) and an LLM judge. Objective checks (word limit, forbidden placeholders, minimum lead score) are computed in code; the judge scores personalization, correctness and structure from 1 to 5 and rates whether the email mentions the company and has a specific hook.
+
+Two runs on the current code (3 cases each, live search and live model):
+
+| Run | Passed | Avg quality | Avg latency | Failing case |
+|---|---|---|---|---|
+| 1 | 2 of 3 | 3.89 / 5 | 52.8s | thin profile |
+| 2 | 2 of 3 | 3.89 / 5 | 34.1s | Sundar Pichai profile |
+
+How to read this:
+- Which case fails changes between runs. The only criterion that flipped in the second run was the judge's `has_specific_hook` rating on an email whose figures were present in the research text.
+- The thin-profile case failed in run 1 because the agent attached a real but unrelated company to a profile it knew nothing about. That was fixed by dropping company names that come from the URL slug and by discarding research that cannot be tied to a verified company, and the case passed in run 2.
+- With 3 cases and an LLM judge this is a regression check, not a benchmark. Run-to-run variation is expected, and a larger golden set is on the roadmap.
+
 ## Known Limitations
 
 - **Free-tier hosting.** Expect a 30–60s cold start after idle time; the UI shows elapsed time during the wait.
@@ -204,7 +220,7 @@ curl -X POST http://localhost:8000/api/agent/run \
 ## Roadmap
 
 - [ ] Retrain the scorer on real won/lost deal outcomes instead of hand-set synthetic weights
-- [ ] Run the LLM-as-judge in `evals/judge.py` in CI so email-quality regressions are caught before merge
+- [ ] Grow the golden set beyond 3 profiles and run the LLM-as-judge in `evals/judge.py` in CI so email-quality regressions are caught before merge
 - [ ] Extend the grounding check beyond dates and numbers to named entities
 - [ ] Migrate from SQLite to Postgres for concurrent writes
 - [ ] Send drafted emails directly through Gmail

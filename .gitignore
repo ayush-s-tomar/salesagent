@@ -31,3 +31,5 @@ backend/evals/runs/
 streamlit_deploy/.streamlit/secrets.toml
 
 *.pkl
+
+backend/evals/runs/run_*.json
