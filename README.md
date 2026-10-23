@@ -118,7 +118,8 @@ salesagent/
 │   ├── mcp_server/         # MCP server
 │   ├── tests/
 │   │   ├── test_smoke.py    # Import/build/output-range smoke tests (CI)
-│   │   └── test_validator.py    # Guardrail unit tests
+│   │   ├── test_validator.py    # Guardrail unit tests
+│   │   └── test_*.py            # LLM retry/quota, grounding, scorer, store, email, eval judge
 │   └── api/
 │       ├── leads.py         # CRUD endpoints
 │       ├── deals.py         # Pipeline stage management
@@ -172,6 +173,8 @@ npm start
 - Tavily: https://app.tavily.com
 - Proxycurl (optional, about $0.01 per profile; the fallback works without it): https://nubela.co/proxycurl
 
+**Run the tests:** `pip install pytest`, then `cd backend && pytest`. The unit tests stub the external services (Groq, Tavily), and CI runs them on every push.
+
 ## API Reference
 
 | Method | Endpoint | Description |
@@ -215,7 +218,7 @@ How to read this:
 - **Fallback emails are generic.** When the model returns nothing or research data is missing, the draft is a short template built from whatever real text exists.
 - **Synthetic scorer.** Lead scores come from a model trained on synthetic data and are not validated against deal outcomes.
 - **Groq rate limits.** Heavy concurrent use can slow or queue email generation, and the free daily quota can run out.
-- **SQLite and no auth.** Fine at demo scale. A production version would use Postgres and multi-tenant authentication. CORS is currently open to any origin (see `backend/main.py`).
+- **SQLite, ephemeral storage and no auth.** Leads and deals live in a SQLite file on the Render free tier, which has no persistent disk, so saved data is lost when the service redeploys, restarts or spins down. Fine at demo scale. A production version would use Postgres and multi-tenant authentication. CORS is currently open to any origin (see `backend/main.py`).
 
 ## Roadmap
 

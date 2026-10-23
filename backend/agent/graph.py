@@ -99,7 +99,7 @@ def node_score(state: AgentState) -> AgentState:
     profile = state.get("profile", {})
     features = {
         "has_company": 1 if profile.get("company") else 0,
-        "has_title": 1 if profile.get("title") else 0,
+        "has_title": 1 if profile.get("title") and profile.get("title") != "Professional" else 0,
         "skills_count": len(profile.get("skills") or []),
         "has_summary": 1 if profile.get("summary") else 0,
         "has_news": 1 if state.get("company_news") else 0,
