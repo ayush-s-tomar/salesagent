@@ -251,7 +251,11 @@ Return ONLY valid JSON, no markdown fences, no preamble, in this exact shape:
         # source material. If it fails, we drop company rather than trust it.
         if extracted:
             extracted_company = (extracted.get("company") or "").strip().lower()
-            if extracted_company and extracted_company not in combined.lower():
+            # A company name that is just a word from the URL slug is not evidence
+            # (e.g. slug "random-startup-founder-xyz" must not yield company "XYZ").
+            company_words = set(extracted_company.split())
+            company_is_slug = bool(company_words) and company_words <= set(fallback_lower.split())
+            if extracted_company and (extracted_company not in combined.lower() or company_is_slug):
                 print(
                     f"Company '{extracted_company}' not grounded in search text "
                     f"for {linkedin_url}, discarding company field"
