@@ -271,7 +271,7 @@ Return ONLY valid JSON, no markdown fences, no preamble, in this exact shape:
 
     return {
         "name": extracted.get("name") or fallback_name,
-        "title": extracted.get("title") or "Professional",
+        "title": _clean_title(extracted.get("title") or "", fallback_name) or "Professional",
         "company": extracted.get("company") or "",
         "location": _clean_location(extracted.get("location") or ""),
         "summary": extracted.get("summary") or "",
@@ -279,6 +279,25 @@ Return ONLY valid JSON, no markdown fences, no preamble, in this exact shape:
         "linkedin_url": linkedin_url,
         "source": "tavily_search_extraction",
     }
+
+
+def _clean_title(title: str, fallback_name: str) -> str:
+    """Drop title segments made only of words from the URL slug.
+
+    A search snippet like "Owner, XYZ" for the slug "random-startup-founder-xyz"
+    puts a slug word in the title; that is not evidence of anything. Titles with
+    no such segment are returned unchanged.
+    """
+    import re
+
+    if not title or not title.strip():
+        return ""
+    slug_words = set(fallback_name.lower().split())
+    parts = [p.strip() for p in re.split(r"\s*[,|]\s*|\s+-\s+", title) if p.strip()]
+    kept = [p for p in parts if not set(p.lower().split()) <= slug_words]
+    if len(kept) == len(parts):
+        return title.strip()
+    return ", ".join(kept)
 
 
 def search_company_news(company_name: str) -> str:

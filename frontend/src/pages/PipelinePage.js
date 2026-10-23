@@ -66,7 +66,7 @@ export default function PipelinePage() {
                   borderRadius: 8, padding: 12, marginBottom: 8,
                 }}>
                   <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 4 }}>{deal.lead_name || String(deal.title || '').replace(/\s+-\s*$/, '')}</div>
-                  <div style={{ color: 'var(--muted)', fontSize: 11, marginBottom: 8 }}>{deal.company}</div>
+                  {deal.company && <div style={{ color: 'var(--muted)', fontSize: 11, marginBottom: 8 }}>{deal.company}</div>}
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                     <div style={{
                       fontSize: 12, fontWeight: 700,

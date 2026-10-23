@@ -88,8 +88,8 @@ export default function LeadsPage() {
                   }}
                 >
                   <td style={{ padding: '10px 14px', fontWeight: 600 }}>{lead.name}</td>
-                  <td style={{ padding: '10px 14px', color: 'var(--muted)' }}>{lead.company}</td>
-                  <td style={{ padding: '10px 14px', color: 'var(--muted)', fontSize: 12 }}>{lead.title}</td>
+                  <td style={{ padding: '10px 14px', color: 'var(--muted)' }}>{lead.company || '-'}</td>
+                  <td style={{ padding: '10px 14px', color: 'var(--muted)', fontSize: 12 }}>{lead.title || '-'}</td>
                   <td style={{ padding: '10px 14px' }}>
                     <span style={{
                       fontWeight: 700,
@@ -133,7 +133,7 @@ export default function LeadsPage() {
                 <pre style={{
                   fontFamily: 'var(--font)', fontSize: 12, lineHeight: 1.7, color: 'var(--text)',
                   whiteSpace: 'pre-wrap', background: 'var(--surface2)', padding: 12, borderRadius: 8,
-                  maxHeight: 200, overflow: 'auto',
+                  maxHeight: 320, overflow: 'auto',
                 }}>
                   {selected.email_draft}
                 </pre>
