@@ -60,7 +60,7 @@ export default function LeadsPage() {
   return (
     <div style={{ padding: 32 }}>
       <h1 style={{ fontSize: 24, fontWeight: 700, marginBottom: 6 }}>Leads</h1>
-      <p style={{ color: 'var(--muted)', marginBottom: 24 }}>{leads.length} leads in database</p>
+      <p style={{ color: 'var(--muted)', marginBottom: 24 }}>{leads.length} {leads.length === 1 ? 'lead' : 'leads'} in database</p>
 
       <div style={{ display: 'grid', gridTemplateColumns: selected ? '1fr 1fr' : '1fr', gap: 20 }}>
         {/* Leads table */}
@@ -165,7 +165,7 @@ export default function LeadsPage() {
                 <div style={{ fontSize: 11, color: 'var(--muted)', marginBottom: 8 }}>ACTIVITY LOG</div>
                 {selected.interactions.map((i, idx) => (
                   <div key={idx} style={{ fontSize: 12, color: 'var(--muted)', padding: '4px 0', borderBottom: '1px solid var(--border)' }}>
-                    {i.type} · {new Date(i.created_at).toLocaleDateString()}
+                    {i.type === 'agent_research' ? 'Agent run' : String(i.type || '').replace(/_/g, ' ')} · {new Date(i.created_at).toLocaleDateString()}
                   </div>
                 ))}
               </div>

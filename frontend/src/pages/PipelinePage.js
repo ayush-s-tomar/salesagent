@@ -36,7 +36,7 @@ export default function PipelinePage() {
   return (
     <div style={{ padding: 32 }}>
       <h1 style={{ fontSize: 24, fontWeight: 700, marginBottom: 6 }}>Sales Pipeline</h1>
-      <p style={{ color: 'var(--muted)', marginBottom: 28 }}>{deals.length} deals tracked</p>
+      <p style={{ color: 'var(--muted)', marginBottom: 28 }}>{deals.length} {deals.length === 1 ? 'deal' : 'deals'} tracked</p>
 
       <div style={{ display: 'flex', gap: 12, overflowX: 'auto', paddingBottom: 16 }}>
         {STAGES.map(stage => {
