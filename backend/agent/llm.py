@@ -2,6 +2,7 @@ import os
 import json
 import re
 import time
+from concurrent.futures import ThreadPoolExecutor
 from typing import Optional
 from groq import Groq, RateLimitError
 from agent.tools import TOOL_SCHEMAS, execute_tool
@@ -192,20 +193,27 @@ def run_with_tools(prompt: str, system: str = None) -> tuple:
             ]
         })
 
-        # Execute each tool call
-        for tc in msg.tool_calls:
-            tool_name = tc.function.name
+        # Execute this turn's tool calls concurrently. The model often batches
+        # independent searches (news, jobs, tech) into one response; running them
+        # in parallel instead of one by one cuts that turn's wall-clock time.
+        # Results are logged and appended in the model's original call order.
+        def _run_tool_call(tc):
+            name = tc.function.name
             try:
-                tool_args = json.loads(tc.function.arguments)
+                args = json.loads(tc.function.arguments)
             except Exception:
-                tool_args = {}
-
+                args = {}
             try:
-                tool_result = execute_tool(tool_name, tool_args)
-                result_str = json.dumps(tool_result) if isinstance(tool_result, dict) else str(tool_result)
+                result = execute_tool(name, args)
+                result_str = json.dumps(result) if isinstance(result, dict) else str(result)
             except Exception as e:
                 result_str = json.dumps({"error": str(e)})
+            return name, args, result_str
 
+        with ThreadPoolExecutor(max_workers=len(msg.tool_calls)) as pool:
+            outcomes = list(pool.map(_run_tool_call, msg.tool_calls))
+
+        for tc, (tool_name, tool_args, result_str) in zip(msg.tool_calls, outcomes):
             # Log this tool call for graph.py to parse
             tool_log.append({
                 "tool": tool_name,
@@ -219,7 +227,6 @@ def run_with_tools(prompt: str, system: str = None) -> tuple:
                 "tool_call_id": tc.id,
                 "content": result_str,
             })
-
     return ("Max iterations reached.", tool_log)
 
 
