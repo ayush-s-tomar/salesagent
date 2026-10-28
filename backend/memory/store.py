@@ -157,6 +157,12 @@ def get_all_deals() -> list:
 def update_deal_stage(deal_id: int, stage: str):
     conn = get_conn()
     conn.execute("UPDATE deals SET stage=?, updated_at=CURRENT_TIMESTAMP WHERE id=?", (stage, deal_id))
+    # Keep the owning lead's stage in sync so the Leads and Pipeline pages agree.
+    conn.execute(
+        "UPDATE leads SET stage=?, updated_at=CURRENT_TIMESTAMP "
+        "WHERE id=(SELECT lead_id FROM deals WHERE id=?)",
+        (stage, deal_id),
+    )
     conn.commit()
     conn.close()
 

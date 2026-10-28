@@ -19,6 +19,22 @@ def _parse_name_from_url(url: str) -> str:
     return slug.replace("-", " ").title()
 
 
+_RESEARCH_FAILURE_PREFIXES = ("could not fetch", "no company name available", '{"error"')
+
+
+def _usable_research(text):
+    """Return the text, or None if it is empty or a tool failure message.
+
+    Search tools report failures as ordinary strings ("Could not fetch news: ...").
+    Those must not be treated as research or earn score credit.
+    """
+    if text is None or not str(text).strip():
+        return None
+    if str(text).strip().lower().startswith(_RESEARCH_FAILURE_PREFIXES):
+        return None
+    return text
+
+
 def node_research(state: AgentState) -> AgentState:
     """Scrape LinkedIn + gather company intelligence using tool-calling."""
     trace = state.get("trace", [])
@@ -47,11 +63,11 @@ Gather as much relevant sales intelligence as possible."""
             except Exception:
                 profile = {}
         elif entry["tool"] == "search_company_news":
-            state["company_news"] = entry["result"]
+            state["company_news"] = _usable_research(entry["result"])
         elif entry["tool"] == "analyze_job_postings":
-            state["job_postings"] = entry["result"]
+            state["job_postings"] = _usable_research(entry["result"])
         elif entry["tool"] == "find_tech_stack":
-            state["tech_stack"] = entry["result"]
+            state["tech_stack"] = _usable_research(entry["result"])
 
     if not profile:
         profile = scrape_linkedin_profile(url)

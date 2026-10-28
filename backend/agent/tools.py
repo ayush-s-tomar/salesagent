@@ -393,6 +393,7 @@ Rules:
 - Professional tone, not salesy
 - Sign off with exactly this name: {sender_name} - never use a bracketed placeholder
 - Simple, single call to action
+- Use only facts present in the profile above; do not invent news, numbers, dates or events
 
 Return ONLY the email with Subject: on the first line."""
 
