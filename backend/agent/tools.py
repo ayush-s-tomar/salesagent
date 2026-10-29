@@ -120,7 +120,9 @@ def _clean_location(location: str) -> str:
     return ", ".join(cleaned)
 
 
-def _search_based_profile(linkedin_url: str, fallback_name: str) -> dict:
+def _search_based_profile_attempt(
+    linkedin_url: str, fallback_name: str, query: str, mismatch: Optional[list] = None
+) -> dict:
     """
     No Proxycurl key: use Tavily to search for this specific LinkedIn URL,
     then ask an LLM to extract name/title/company/location from the
@@ -149,7 +151,7 @@ def _search_based_profile(linkedin_url: str, fallback_name: str) -> dict:
         # is often buried below the fold on a LinkedIn snippet, not in the
         # first line Tavily would otherwise return.
         results = _tavily().search(
-            query=f'"{linkedin_url}" "{fallback_name}" title company location city current role',
+            query=query,
             max_results=8,
             search_depth="advanced",
             include_domains=["linkedin.com"],
@@ -231,6 +233,8 @@ Return ONLY valid JSON, no markdown fences, no preamble, in this exact shape:
                 f"Name mismatch: extracted '{extracted_name}' vs expected "
                 f"'{fallback_lower}' for {linkedin_url}, discarding extraction"
             )
+            if mismatch is not None:
+                mismatch.append(True)
             extracted = {}
 
         # FIX (company hallucination): the name-mismatch check above only
@@ -279,6 +283,26 @@ Return ONLY valid JSON, no markdown fences, no preamble, in this exact shape:
         "linkedin_url": linkedin_url,
         "source": "tavily_search_extraction",
     }
+
+
+def _search_based_profile(linkedin_url: str, fallback_name: str) -> dict:
+    """Search-based profile, with one retry when the first search returned someone else.
+
+    Search results sometimes come back for a different person, and the name
+    check in _search_based_profile_attempt then discards them. One differently
+    shaped query is tried before settling for a slug-only profile. A stranger is
+    still never accepted: both attempts go through the same name check.
+    """
+    first_query = f'"{linkedin_url}" "{fallback_name}" title company location city current role'
+    first_mismatch = []
+    profile = _search_based_profile_attempt(linkedin_url, fallback_name, first_query, first_mismatch)
+    if not first_mismatch:
+        return profile
+
+    retry_query = f"{linkedin_url} {fallback_name} LinkedIn profile"
+    retry_mismatch = []
+    retry = _search_based_profile_attempt(linkedin_url, fallback_name, retry_query, retry_mismatch)
+    return profile if retry_mismatch else retry
 
 
 def _clean_title(title: str, fallback_name: str) -> str:
