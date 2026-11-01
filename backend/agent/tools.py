@@ -1,4 +1,5 @@
 import os
+import re
 import json
 import httpx
 from typing import Optional
@@ -254,17 +255,14 @@ Return ONLY valid JSON, no markdown fences, no preamble, in this exact shape:
         # misattributing a company name that isn't even present in the
         # source material. If it fails, we drop company rather than trust it.
         if extracted:
-            extracted_company = (extracted.get("company") or "").strip().lower()
-            # A company name that is just a word from the URL slug is not evidence
-            # (e.g. slug "random-startup-founder-xyz" must not yield company "XYZ").
-            company_words = set(extracted_company.split())
-            company_is_slug = bool(company_words) and company_words <= set(fallback_lower.split())
-            if extracted_company and (extracted_company not in combined.lower() or company_is_slug):
+            raw_company = (extracted.get("company") or "").strip()
+            grounded_company = _ground_company(raw_company, combined, fallback_name)
+            if raw_company and not grounded_company:
                 print(
-                    f"Company '{extracted_company}' not grounded in search text "
+                    f"Company '{raw_company}' not grounded in search text "
                     f"for {linkedin_url}, discarding company field"
                 )
-                extracted["company"] = ""
+            extracted["company"] = grounded_company
 
     except json.JSONDecodeError:
         print(f"Profile extraction: model returned non-JSON for {linkedin_url}, using fallback name only.")
@@ -299,10 +297,37 @@ def _search_based_profile(linkedin_url: str, fallback_name: str) -> dict:
     if not first_mismatch:
         return profile
 
+    print(f"Profile search returned a different person for {linkedin_url}; retrying once")
     retry_query = f"{linkedin_url} {fallback_name} LinkedIn profile"
     retry_mismatch = []
     retry = _search_based_profile_attempt(linkedin_url, fallback_name, retry_query, retry_mismatch)
     return profile if retry_mismatch else retry
+
+
+_COMPANY_SEPARATORS = re.compile(r"\s*(?:/|\||;|\s-\s|\s&\s)\s*")
+
+
+def _ground_company(raw_company: str, search_text: str, fallback_name: str) -> str:
+    """Return the part of a company string that is backed by the search text, else "".
+
+    The model sometimes returns compound names such as "Google / Alphabet". The whole
+    string is tried first, then each part, so one grounded part is enough. A candidate
+    made only of words from the URL slug is never evidence and is skipped.
+    """
+    raw = (raw_company or "").strip()
+    if not raw:
+        return ""
+    text = (search_text or "").lower()
+    slug_words = set(fallback_name.lower().split())
+    candidates = [raw] + [p.strip() for p in _COMPANY_SEPARATORS.split(raw) if p.strip()]
+    for candidate in candidates:
+        low = candidate.lower()
+        words = set(low.split())
+        if words and words <= slug_words:
+            continue
+        if low in text:
+            return candidate
+    return ""
 
 
 def _clean_title(title: str, fallback_name: str) -> str:
