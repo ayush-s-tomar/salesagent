@@ -173,6 +173,8 @@ npm start
 - Tavily: https://app.tavily.com
 - Proxycurl (optional, about $0.01 per profile; the fallback works without it): https://nubela.co/proxycurl
 
+**MCP server (optional):** `cd backend && python mcp_server/server.py` starts a stdio MCP server exposing `get_profile` and `draft_email`. Its email tool uses only the profile it is given and does not run the research pipeline or the output checks.
+
 **Run the tests:** `pip install pytest`, then `cd backend && pytest`. The unit tests stub the external services (Groq, Tavily), and CI runs them on every push.
 
 ## API Reference
@@ -198,20 +200,19 @@ curl -X POST http://localhost:8000/api/agent/run \
 
 `backend/evals/` holds a golden set of 3 profiles, a runner (`python -m evals.run_evals`) and an LLM judge. Objective checks (word limit, forbidden placeholders, minimum lead score) are computed in code; the judge scores personalization, correctness and structure from 1 to 5 and rates whether the email mentions the company and has a specific hook.
 
-Two runs on the current code (3 cases each, live search and live model):
+Runs on the final code (3 cases each, live search and live model):
 
-| Run | Passed | Avg quality | Avg latency | Failing case |
-|---|---|---|---|---|
-| 1 | 2 of 3 | 3.89 / 5 | 52.8s | thin profile |
-| 2 | 2 of 3 | 3.89 / 5 | 34.1s | Sundar Pichai profile |
+| Run | Passed | Avg quality | Avg latency |
+|---|---|---|---|
+| 1 | 3 of 3 | 3.56 / 5 | 65.2s |
+| 2 | 3 of 3 | 3.33 / 5 | 53.2s |
 
 How to read this:
-- Which case fails changes between runs. The only criterion that flipped in the second run was the judge's `has_specific_hook` rating on an email whose figures were present in the research text.
-- The thin-profile case failed in run 1 because the agent attached a real but unrelated company to a profile it knew nothing about. That was fixed by dropping company names that come from the URL slug and by discarding research that cannot be tied to a verified company, and the case passed in run 2.
-- With 3 cases and an LLM judge this is a regression check, not a benchmark. Run-to-run variation is expected, and a larger golden set is on the roadmap.
+- Earlier runs on intermediate code failed one case each time, and the cause differed: a search that returned a different person (fixed with one retry), a company name returned as "Google / Alphabet" that the grounding check rejected (fixed by accepting a grounded part), and an unrelated company attached to a thin profile (fixed by dropping company names taken from the URL slug). Each fix has unit tests.
+- Scores and latency vary between runs because search results and the model vary. The thin-profile case is the slowest because a wrong first search triggers a second search and model call.
+- With 3 cases and an LLM judge this is a regression check, not a benchmark. A larger golden set is on the roadmap.
 
 ## Known Limitations
-
 - **Free-tier hosting.** Expect a 30–60s cold start after idle time; the UI shows elapsed time during the wait.
 - **Profile scraping is best-effort.** Without a paid Proxycurl key, the agent falls back to search plus LLM extraction. Thin or new profiles may return little, and a company name that cannot be found in the search text is left blank.
 - **Email checks are heuristic.** The validator catches banned phrases, length, placeholders, invented month-and-day dates and numbers that are absent from the research text. It cannot verify other kinds of claims (product names, policies), so review drafts before sending.
