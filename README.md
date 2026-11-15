@@ -181,9 +181,11 @@ npm start
 
 | Method | Endpoint | Description |
 |---|---|---|
-| POST | `/api/agent/run` | Run the agent on a LinkedIn URL (SSE stream) |
+| POST | `/api/agent/run` | Run the agent on a LinkedIn profile URL (SSE stream); other URLs get a 400 |
 | GET | `/api/health` | Health check and cold-start wake-up ping |
 | GET | `/api/leads/` | List all leads |
+| GET | `/api/leads/export.csv` | Download all leads as CSV |
+| PATCH | `/api/leads/{id}` | Update a lead, including saving an edited email draft |
 | GET | `/api/leads/{id}` | Lead detail and interaction history |
 | GET | `/api/deals/` | All deals with pipeline stages |
 | PATCH | `/api/deals/{id}/stage` | Move a deal to a new stage |

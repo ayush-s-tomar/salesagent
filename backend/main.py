@@ -6,6 +6,7 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from typing import Optional
 import json
+import re
 import time
 
 from agent.graph import run_agent
@@ -148,11 +149,36 @@ def _check_rate_limit(client_ip: str) -> Optional[float]:
     return None
 
 
+_LINKEDIN_PROFILE = re.compile(r"^https?://(?:[a-z]{2,3}\.)?linkedin\.com/in/[\w%\-]+/?$", re.IGNORECASE)
+
+
+def _normalize_linkedin_url(raw):
+    """Return a cleaned LinkedIn profile URL, or None if it is not one.
+
+    Only profile URLs (linkedin.com/in/<name>) are accepted, with an optional www
+    or country subdomain. Query strings and fragments are dropped. This keeps
+    arbitrary text out of the research prompts and saves quota on bad input.
+    """
+    if not raw or not isinstance(raw, str):
+        return None
+    url = raw.strip().split("#")[0].split("?")[0]
+    if len(url) > 300:
+        return None
+    return url if _LINKEDIN_PROFILE.match(url) else None
+
+
 @app.post("/api/agent/run")
 async def run_sales_agent(req: AgentRequest, request: Request):
     """Run the sales agent on a LinkedIn URL or natural language command."""
     if not req.linkedin_url and not req.message:
         raise HTTPException(400, "Provide linkedin_url or message")
+
+    linkedin_url = _normalize_linkedin_url(req.linkedin_url)
+    if linkedin_url is None:
+        raise HTTPException(
+            400,
+            "Please enter a LinkedIn profile URL, for example https://www.linkedin.com/in/your-name",
+        )
 
     client_ip = _get_client_ip(request)
     retry_after = _check_rate_limit(client_ip)
@@ -179,7 +205,7 @@ async def run_sales_agent(req: AgentRequest, request: Request):
         # actionable message with the real wait time instead.
         try:
             async for event in run_agent(
-                linkedin_url=req.linkedin_url,
+                linkedin_url=linkedin_url,
                 message=req.message,
                 lead_id=req.lead_id,
             ):
