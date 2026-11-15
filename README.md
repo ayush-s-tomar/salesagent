@@ -42,6 +42,36 @@ If the Groq daily quota is used up, the UI shows a clear error. Try again after 
 
 Each generated email can be copied, opened in your email app (a `mailto:` link), or downloaded as a `.txt` file.
 
+## Example Output
+
+Two real outputs from the live demo (results vary between runs because search results and the model vary).
+
+**A profile with public data** (`linkedin.com/in/satyanadella`): lead score 94, built from one real news item.
+Subject: Microsoft launched Microsoft 365 Premium in 2025 with expanded, unrestricted Copilot access
+
+Satya,
+
+Microsoft launched Microsoft 365 Premium in 2025, adding expanded, unrestricted access to Copilot for subscribers.
+
+Our software turns signals like that premium launch into a prioritized list of sales contacts and generates personalized outreach for each prospect.
+
+I can show a quick demo of how the signal-to-outreach workflow works in a 15-minute call Tuesday.
+
+Best,
+Ayush Singh Tomar
+
+**A profile with no usable data** (`linkedin.com/in/random-startup-founder-xyz`): the agent says "Profile found (limited public data)", scores it low and sends a plain template instead of inventing a company or an event.
+Subject: Quick question for your team
+
+Hi there,
+
+Quick question about how your team prioritizes outbound leads.
+
+We help sales teams turn signals like this into prioritized, personalized outreach. Would a 15-minute call on Tuesday work?
+
+Best,
+Ayush Singh Tomar
+
 ## Why I Built This
 
 Manual B2B lead research is slow: check LinkedIn, search for company news, read job postings to infer priorities, then write an email from scratch. It is a multi-step, tool-using task that suits an LLM agent, so I built one that runs the whole loop: research, score, draft, save.
