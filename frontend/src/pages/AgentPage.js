@@ -14,6 +14,7 @@ export default function AgentPage() {
   const [elapsed, setElapsed] = useState(0);
   const [backendWarm, setBackendWarm] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [cooldown, setCooldown] = useState(0);
   const timerRef = useRef(null);
 
   // FIX: Render's free-tier backend spins down after inactivity and takes
@@ -27,7 +28,13 @@ export default function AgentPage() {
   // inline with their actual task.
   useEffect(() => {
     fetch(`${API}/api/health`)
-      .then(() => setBackendWarm(true))
+      .then(r => r.json().catch(() => ({})))
+      .then(d => {
+        setBackendWarm(true);
+        if (d && (d.groq_configured === false || d.tavily_configured === false)) {
+          setError('The demo backend is missing an API key, so runs will fail until it is configured.');
+        }
+      })
       .catch(() => {});
   }, []);
 
@@ -45,6 +52,14 @@ export default function AgentPage() {
     }
     return () => timerRef.current && clearInterval(timerRef.current);
   }, [running]);
+
+  // The API allows one run per 30 seconds per visitor. Counting down here avoids
+  // sending the visitor into the "Please wait" error. The server still enforces it.
+  useEffect(() => {
+    if (cooldown <= 0) return undefined;
+    const id = setTimeout(() => setCooldown(c => c - 1), 1000);
+    return () => clearTimeout(id);
+  }, [cooldown]);
 
   async function runAgent() {
     if (!url.trim()) return;
@@ -66,6 +81,8 @@ export default function AgentPage() {
         setError(msg);
         return;
       }
+
+      setCooldown(30);
 
       const reader = resp.body.getReader();
       const decoder = new TextDecoder();
@@ -122,12 +139,12 @@ export default function AgentPage() {
         />
         <button
           onClick={runAgent}
-          disabled={running || !url.trim()}
+          disabled={running || cooldown > 0 || !url.trim()}
           style={{
             display: 'flex', alignItems: 'center', gap: 8,
             padding: '12px 24px', background: running ? 'var(--surface2)' : 'var(--accent)',
             border: 'none', borderRadius: 8, color: 'white', fontWeight: 600,
-            cursor: running ? 'not-allowed' : 'pointer', fontSize: 14,
+            cursor: running || cooldown > 0 ? 'not-allowed' : 'pointer', fontSize: 14,
             opacity: !url.trim() ? 0.5 : 1,
             minWidth: 150, justifyContent: 'center',
           }}
@@ -140,7 +157,7 @@ export default function AgentPage() {
           ) : (
             <>
               <Play size={15} fill="white" />
-              Run Agent
+              {cooldown > 0 ? `Run again in ${cooldown}s` : 'Run Agent'}
             </>
           )}
         </button>
