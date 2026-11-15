@@ -255,6 +255,16 @@ curl -X POST http://localhost:8000/api/agent/run \
   -d '{"linkedin_url": "https://www.linkedin.com/in/your-profile"}'
 ```
 
+## Design Decisions
+
+- **One signal per email.** Early drafts stitched together a funding number, a job posting and a product name, which read as disjointed and invited invented details. The drafter now anchors on one signal (news, then hiring, then tech stack) and may mention a second only once.
+- **No verified company, no research.** If the profile has no company that appears in the search text, any news, job or tech results are discarded. The model can otherwise guess a company to search for and write a confident email about the wrong one.
+- **A name check on every profile search.** Search results sometimes come back for a different person. If the extracted name does not match the URL slug, the extraction is thrown away and the search is retried once with a different query. A stranger's profile is never accepted, and the cost is one extra search and model call on a mismatch.
+- **Rule-based checks instead of an LLM fact-checker.** The validator is deterministic: it rejects refusals, placeholders, filler phrases, over-length drafts, and any date or number that does not appear in the research text. It is cheap and testable, and it fails safe (a rejected draft becomes a plain template). The trade-off is that it cannot verify other kinds of claims, which is why the limitation is listed above.
+- **A fallback instead of a failure.** Empty model output, a failed rewrite and missing research all end in a short template built from real text, so the UI never shows a blank or broken email.
+- **Fail fast on the daily quota.** A per-minute rate limit is retried using the wait time Groq reports. A daily-quota error is raised immediately, so a single request cannot hold the only Render worker for minutes.
+- **SQLite.** One file, no setup, and enough for a demo. The price is that data does not survive a redeploy on the free tier, which is why Postgres is on the roadmap.
+
 ## Evaluation
 
 `backend/evals/` holds a golden set of 3 profiles, a runner (`python -m evals.run_evals`) and an LLM judge. Objective checks (word limit, forbidden placeholders, minimum lead score) are computed in code; the judge scores personalization, correctness and structure from 1 to 5 and rates whether the email mentions the company and has a specific hook.
