@@ -2,7 +2,7 @@
 
 [![CI](https://github.com/ayush-s-tomar/salesagent/actions/workflows/ci.yml/badge.svg)](https://github.com/ayush-s-tomar/salesagent/actions/workflows/ci.yml) ![Python](https://img.shields.io/badge/python-3.11-blue) ![License](https://img.shields.io/badge/license-MIT-green) ![FastAPI](https://img.shields.io/badge/FastAPI-backend-teal) ![React](https://img.shields.io/badge/React-frontend-61dafb) ![Status](https://img.shields.io/badge/status-live-brightgreen) ![LangGraph](https://img.shields.io/badge/LangGraph-agent-1C3C3C)
 
-An AI agent that takes a LinkedIn URL, researches the lead and their company, scores the lead, and drafts a personalized cold email in about a minute.
+An AI agent that takes a LinkedIn URL, researches the lead and their company, scores the lead, and drafts a personalized cold email (typically 20 to 100 seconds end to end).
 
 **[Live Demo](https://salesagent-theta.vercel.app)** · [Portfolio](https://ayush-s-tomar.vercel.app) · [LinkedIn](https://www.linkedin.com/in/ayushsinghtomar/)
 
@@ -182,7 +182,7 @@ npm start
 | Method | Endpoint | Description |
 |---|---|---|
 | POST | `/api/agent/run` | Run the agent on a LinkedIn profile URL (SSE stream); other URLs get a 400 |
-| GET | `/api/health` | Health check and cold-start wake-up ping |
+| GET | `/api/health` | Health check, cold-start wake-up ping, and whether the API keys are configured (values are never returned) |
 | GET | `/api/leads/` | List all leads |
 | GET | `/api/leads/export.csv` | Download all leads as CSV |
 | PATCH | `/api/leads/{id}` | Update a lead, including saving an edited email draft |

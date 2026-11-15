@@ -6,6 +6,7 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from typing import Optional
 import json
+import os
 import re
 import time
 
@@ -227,4 +228,12 @@ async def run_sales_agent(req: AgentRequest, request: Request):
 
 @app.get("/api/health")
 def health():
-    return {"status": "ok"}
+    """Liveness plus configuration status.
+
+    Reports whether each API key is set. It never returns a key or any part of one.
+    """
+    return {
+        "status": "ok",
+        "groq_configured": bool(os.getenv("GROQ_API_KEY")),
+        "tavily_configured": bool(os.getenv("TAVILY_API_KEY")),
+    }
