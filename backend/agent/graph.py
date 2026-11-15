@@ -440,14 +440,16 @@ def node_save(state: AgentState) -> AgentState:
         "stage": "Lead",
     })
 
+    followup = (datetime.now() + timedelta(days=3)).strftime("%Y-%m-%d")
+
     deal_id = save_deal({
         "lead_id": lead_id,
         "title": f"{profile.get('name', 'Lead')} - {profile.get('company', '')}",
         "stage": "Lead",
         "score": state.get("lead_score", 0),
+        "follow_up_date": followup,
     })
 
-    followup = (datetime.now() + timedelta(days=3)).strftime("%Y-%m-%d")
     state["deal_id"] = deal_id
     state["followup_date"] = followup
 

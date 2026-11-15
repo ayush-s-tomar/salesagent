@@ -56,6 +56,11 @@ def init_db():
     );
     """)
 
+    # Additive migration: databases created before this column existed get it here.
+    deal_columns = [row["name"] for row in c.execute("PRAGMA table_info(deals)").fetchall()]
+    if "follow_up_date" not in deal_columns:
+        c.execute("ALTER TABLE deals ADD COLUMN follow_up_date TEXT")
+
     conn.commit()
     conn.close()
 
@@ -129,14 +134,17 @@ def save_deal(data: dict) -> int:
     if existing:
         deal_id = existing["id"]
         c.execute(
-            "UPDATE deals SET title=?, score=?, updated_at=CURRENT_TIMESTAMP WHERE id=?",
-            (data.get("title"), data.get("score", 0), deal_id),
+            "UPDATE deals SET title=?, score=?, follow_up_date=COALESCE(?, follow_up_date), "
+            "updated_at=CURRENT_TIMESTAMP WHERE id=?",
+            (data.get("title"), data.get("score", 0), data.get("follow_up_date"), deal_id),
         )
     else:
+        params = dict(data)
+        params.setdefault("follow_up_date", None)
         c.execute("""
-            INSERT INTO deals (lead_id, title, stage, score)
-            VALUES (:lead_id, :title, :stage, :score)
-        """, data)
+            INSERT INTO deals (lead_id, title, stage, score, follow_up_date)
+            VALUES (:lead_id, :title, :stage, :score, :follow_up_date)
+        """, params)
         deal_id = c.lastrowid
     conn.commit()
     conn.close()
