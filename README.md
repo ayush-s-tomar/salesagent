@@ -40,6 +40,8 @@ https://github.com/user-attachments/assets/a5b6394c-325b-4049-8a22-a891fb489f08
 
 If the Groq daily quota is used up, the UI shows a clear error. Try again after it resets.
 
+Each generated email can be copied, opened in your email app (a `mailto:` link), or downloaded as a `.txt` file.
+
 ## Why I Built This
 
 Manual B2B lead research is slow: check LinkedIn, search for company news, read job postings to infer priorities, then write an email from scratch. It is a multi-step, tool-using task that suits an LLM agent, so I built one that runs the whole loop: research, score, draft, save.

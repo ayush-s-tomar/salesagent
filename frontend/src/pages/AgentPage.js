@@ -1,9 +1,17 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Search, BarChart3, PenLine, Save, PartyPopper, Loader2, Play, Copy, CheckCircle2 } from 'lucide-react';
+import { Search, BarChart3, PenLine, Save, PartyPopper, Loader2, Play, Copy, CheckCircle2, Mail, Download } from 'lucide-react';
+import { mailtoHref, downloadTextFile, emailFileName } from '../utils/email';
 
 const API = process.env.REACT_APP_API_URL || '';
 
 const STEP_ICONS = { research: Search, score: BarChart3, email: PenLine, save: Save, complete: PartyPopper };
+
+const EMAIL_ACTION_STYLE = {
+  display: 'inline-flex', alignItems: 'center', gap: 6,
+  padding: '6px 14px', background: 'var(--surface2)',
+  border: '1px solid var(--border)', borderRadius: 6, color: 'var(--text)',
+  cursor: 'pointer', fontSize: 12, textDecoration: 'none',
+};
 
 export default function AgentPage() {
   const [url, setUrl] = useState('');
@@ -318,6 +326,19 @@ export default function AgentPage() {
               <Copy size={13} />
               {copied ? 'Copied' : 'Copy Email'}
             </button>
+            <div style={{ display: 'flex', gap: 8, marginTop: 8, flexWrap: 'wrap' }}>
+              <a href={mailtoHref(result.email)} style={EMAIL_ACTION_STYLE}>
+                <Mail size={13} />
+                Open in email app
+              </a>
+              <button
+                onClick={() => downloadTextFile(result.email, emailFileName(result.profile && result.profile.name))}
+                style={EMAIL_ACTION_STYLE}
+              >
+                <Download size={13} />
+                Download .txt
+              </button>
+            </div>
           </div>
         </div>
       )}
