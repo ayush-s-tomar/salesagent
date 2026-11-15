@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { followUpStatus } from '../utils/followup';
 
 const API = process.env.REACT_APP_API_URL || '';
 const STAGES = ['Lead', 'Contacted', 'Qualified', 'Proposal', 'Closed Won', 'Closed Lost'];
@@ -67,6 +68,14 @@ export default function PipelinePage() {
                 }}>
                   <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 4 }}>{deal.lead_name || String(deal.title || '').replace(/\s+-\s*$/, '')}</div>
                   {deal.company && <div style={{ color: 'var(--muted)', fontSize: 11, marginBottom: 8 }}>{deal.company}</div>}
+                  {(() => {
+                    const fu = followUpStatus(deal.follow_up_date, deal.stage);
+                    return fu ? (
+                      <div style={{ fontSize: 11, marginBottom: 8, color: fu.overdue ? 'var(--red)' : 'var(--muted)' }}>
+                        {fu.label}
+                      </div>
+                    ) : null;
+                  })()}
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                     <div style={{
                       fontSize: 12, fontWeight: 700,
