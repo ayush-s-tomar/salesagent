@@ -271,6 +271,17 @@ How to read this:
 - Scores and latency vary between runs because search results and the model vary. The thin-profile case is the slowest because a wrong first search triggers a second search and model call.
 - With 3 cases and an LLM judge this is a regression check, not a benchmark. A larger golden set is on the roadmap.
 
+## Troubleshooting
+
+| What you see | Why | What to do |
+|---|---|---|
+| The first run takes 30 to 60 seconds | The backend is on Render's free tier and sleeps when idle | Wait; the UI shows elapsed time |
+| "Please wait Ns before running the agent again" | The API allows one agent run per 30 seconds per visitor to protect the shared API quota | Wait for the timer, then run again |
+| "This demo shares a limited daily AI quota, which is currently exhausted" | The shared Groq daily token budget is used up | Try again later; the message includes the wait time |
+| "Profile found (limited public data)" and a plain "Hi there" email | The agent could not verify a name or company for that profile, so it deliberately avoids inventing facts | Expected for thin profiles; try a well-known public profile |
+| Leads and Pipeline are empty again | Storage is a SQLite file on a free tier with no persistent disk, so it is lost on redeploy or restart | Run the agent again to re-create leads |
+| `ModuleNotFoundError: No module named 'tavily'` when running locally | The virtual environment is not active, or dependencies are not installed | Activate the venv (`venv\Scripts\activate`), then `pip install -r requirements.txt` |
+
 ## Known Limitations
 - **Free-tier hosting.** Expect a 30–60s cold start after idle time; the UI shows elapsed time during the wait.
 - **Profile scraping is best-effort.** Without a paid Proxycurl key, the agent falls back to search plus LLM extraction. Thin or new profiles may return little, and a company name that cannot be found in the search text is left blank.
