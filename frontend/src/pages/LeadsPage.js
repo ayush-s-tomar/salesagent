@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 
 const API = process.env.REACT_APP_API_URL || '';
+const STAGES = ['Lead', 'Contacted', 'Qualified', 'Proposal', 'Closed Won', 'Closed Lost'];
 
 export default function LeadsPage() {
   const [leads, setLeads] = useState([]);
@@ -9,6 +10,11 @@ export default function LeadsPage() {
   const [regenTone, setRegenTone] = useState('professional');
   const [regenLoading, setRegenLoading] = useState(false);
   const [regenMsg, setRegenMsg] = useState('');
+  const [draftDirty, setDraftDirty] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [query, setQuery] = useState('');
+  const [stageFilter, setStageFilter] = useState('');
+  const [sortBy, setSortBy] = useState('newest');
 
   useEffect(() => { fetchLeads(); }, []);
 
@@ -21,6 +27,7 @@ export default function LeadsPage() {
   }
 
   async function fetchDetail(id) {
+    setDraftDirty(false);
     setRegenMsg('');
     try {
       const r = await fetch(`${API}/api/leads/${id}`);
@@ -47,7 +54,8 @@ export default function LeadsPage() {
       const data = await r.json().catch(() => ({}));
       if (!r.ok) { setRegenMsg(data.detail || `Request failed (${r.status}).`); return; }
       setSelected(prev => ({ ...prev, email_draft: data.email }));
-      setRegenMsg(data.note || 'Preview only. This rewrite is not saved.');
+      setDraftDirty(!data.note);
+      setRegenMsg(data.note || 'Rewritten. Click Save this version to keep it.');
     } catch (_) {
       setRegenMsg('Could not reach the server.');
     } finally {
@@ -55,12 +63,90 @@ export default function LeadsPage() {
     }
   }
 
+  async function saveDraft() {
+    if (!selected || !draftDirty) return;
+    setSaving(true); setRegenMsg('');
+    try {
+      const r = await fetch(`${API}/api/leads/${selected.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email_draft: selected.email_draft }),
+      });
+      const data = await r.json().catch(() => ({}));
+      if (!r.ok) { setRegenMsg(data.detail || `Request failed (${r.status}).`); return; }
+      setDraftDirty(false);
+      setRegenMsg('Saved.');
+      setLeads(prev => prev.map(l => (l.id === selected.id ? { ...l, email_draft: selected.email_draft } : l)));
+    } catch (_) {
+      setRegenMsg('Could not reach the server.');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function exportCsv() {
+    try {
+      const r = await fetch(`${API}/api/leads/export.csv`);
+      if (!r.ok) return;
+      const blob = await r.blob();
+      const href = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = href;
+      a.download = 'leads.csv';
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(href);
+    } catch (_) {}
+  }
+
+  const q = query.trim().toLowerCase();
+  let visible = leads
+    .filter(l => !stageFilter || l.stage === stageFilter)
+    .filter(l => !q || [l.name, l.company, l.title].some(v => String(v || '').toLowerCase().includes(q)));
+  if (sortBy === 'score') visible = [...visible].sort((a, b) => (b.score || 0) - (a.score || 0));
+
   if (loading) return <div style={{ padding: 32, color: 'var(--muted)' }}>Loading leads...</div>;
 
   return (
     <div style={{ padding: 32 }}>
       <h1 style={{ fontSize: 24, fontWeight: 700, marginBottom: 6 }}>Leads</h1>
-      <p style={{ color: 'var(--muted)', marginBottom: 24 }}>{leads.length} {leads.length === 1 ? 'lead' : 'leads'} in database</p>
+      <p style={{ color: 'var(--muted)', marginBottom: 16 }}>
+        {visible.length === leads.length
+          ? `${leads.length} ${leads.length === 1 ? 'lead' : 'leads'} in database`
+          : `Showing ${visible.length} of ${leads.length} leads`}
+      </p>
+
+      <div style={{ display: 'flex', gap: 10, marginBottom: 16, flexWrap: 'wrap', alignItems: 'center' }}>
+        <input
+          value={query}
+          onChange={e => setQuery(e.target.value)}
+          placeholder="Search name, company or title"
+          style={{ flex: 1, minWidth: 200, padding: '8px 12px', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 8, color: 'var(--text)', fontSize: 13, outline: 'none' }}
+        />
+        <select
+          value={stageFilter}
+          onChange={e => setStageFilter(e.target.value)}
+          style={{ fontSize: 12, padding: '8px 10px', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 8, color: 'var(--text)' }}
+        >
+          <option value="">All stages</option>
+          {STAGES.map(s => <option key={s} value={s}>{s}</option>)}
+        </select>
+        <select
+          value={sortBy}
+          onChange={e => setSortBy(e.target.value)}
+          style={{ fontSize: 12, padding: '8px 10px', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 8, color: 'var(--text)' }}
+        >
+          <option value="newest">Newest first</option>
+          <option value="score">Highest score</option>
+        </select>
+        <button
+          onClick={exportCsv}
+          style={{ fontSize: 12, padding: '8px 14px', background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 8, color: 'var(--text)', cursor: 'pointer' }}
+        >
+          Export CSV
+        </button>
+      </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: selected ? '1fr 1fr' : '1fr', gap: 20 }}>
         {/* Leads table */}
@@ -74,10 +160,10 @@ export default function LeadsPage() {
               </tr>
             </thead>
             <tbody>
-              {leads.length === 0 && (
-                <tr><td colSpan={5} style={{ padding: 24, textAlign: 'center', color: 'var(--muted)' }}>No leads yet. Run the agent to add some.</td></tr>
+              {visible.length === 0 && (
+                <tr><td colSpan={5} style={{ padding: 24, textAlign: 'center', color: 'var(--muted)' }}>{leads.length === 0 ? 'No leads yet. Run the agent to add some.' : 'No leads match your filters.'}</td></tr>
               )}
-              {leads.map(lead => (
+              {visible.map(lead => (
                 <tr
                   key={lead.id}
                   onClick={() => fetchDetail(lead.id)}
@@ -154,6 +240,13 @@ export default function LeadsPage() {
                     style={{ fontSize: 12, padding: '5px 12px', background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 6, color: 'var(--text)', cursor: regenLoading ? 'not-allowed' : 'pointer' }}
                   >
                     {regenLoading ? 'Rewriting...' : 'Rewrite in this tone'}
+                  </button>
+                  <button
+                    onClick={saveDraft}
+                    disabled={!draftDirty || saving}
+                    style={{ fontSize: 12, padding: '5px 12px', background: draftDirty ? 'var(--accent)' : 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 6, color: draftDirty ? 'white' : 'var(--muted)', cursor: !draftDirty || saving ? 'not-allowed' : 'pointer' }}
+                  >
+                    {saving ? 'Saving...' : 'Save this version'}
                   </button>
                 </div>
                 {regenMsg && <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 6 }}>{regenMsg}</div>}
