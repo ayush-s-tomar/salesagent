@@ -1,3 +1,8 @@
+# Reference only. This file is NOT what production uses.
+# Live deployment: the backend runs on Render as a Docker service built from
+# backend/Dockerfile (configured in the Render dashboard); the frontend is
+# deployed on Vercel. The native-Python backend and static frontend services
+# below describe an alternative setup and are kept for reference.
 services:
   - type: web
     name: salesagent-backend
