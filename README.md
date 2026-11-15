@@ -95,6 +95,31 @@ LinkedIn URL -> [Research] -> [Score] -> [Draft Email] -> [Save to Pipeline]
 
 **Scoring.** The scorer is a Random Forest on six features (`has_company`, `has_title`, `skills_count`, `has_summary`, `has_news`, `has_jobs`), weighted so recent news and open job postings count most. It is trained on synthetic data with hand-set weights, not real deal outcomes, so scores are a directional signal only. See `ml/scorer.py::train_and_save`.
 
+## Architecture
+
+```mermaid
+flowchart TD
+    UI["React UI (Vercel)"] -->|"POST /api/agent/run"| API["FastAPI (Render)"]
+    API -->|"SSE trace events"| UI
+    API --> R
+
+    subgraph G["LangGraph pipeline"]
+        R["Research: the LLM calls tools"] --> S["Score: Random Forest"]
+        S --> E["Draft email (fallback template if no research)"]
+        E --> V{"Validator"}
+        V -->|"clean"| SV["Save lead and deal"]
+        V -->|"violations"| RW["Rewrite once"]
+        RW --> V2{"Re-check"}
+        V2 -->|"clean"| SV
+        V2 -->|"still failing"| FB["Fallback template"]
+        FB --> SV
+    end
+
+    R <--> T["Tavily search and Groq extraction"]
+    E <--> L["Groq LLM"]
+    SV --> DB[("SQLite")]
+```
+
 ## What Makes This Agentic
 
 **Tool calling.** The LLM receives four tool schemas and decides per step whether and how to call each one. See `agent/llm.py::run_with_tools`.
