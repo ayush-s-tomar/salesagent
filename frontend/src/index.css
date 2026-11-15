@@ -30,3 +30,32 @@ body {
 ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
 
 input, textarea, button { font-family: var(--font); }
+
+/* polish: spinner, focus, selection */
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+button:focus-visible,
+select:focus-visible,
+a:focus-visible {
+  outline: 2px solid var(--accent2);
+  outline-offset: 2px;
+}
+
+/* inputs set outline:none inline, so use a ring instead */
+input:focus-visible,
+textarea:focus-visible {
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 55%, transparent);
+  border-color: var(--accent) !important;
+}
+
+button:disabled { opacity: 0.6; }
+
+::selection {
+  background: color-mix(in srgb, var(--accent) 35%, transparent);
+  color: var(--text);
+}
+
+::placeholder { color: var(--muted); opacity: 0.8; }
